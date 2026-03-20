@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCF — Cálculo de Conformidade Fiscal</title>
+    <style>
+        :root {
+            --primary-blue: #1d4ed8;
+            --primary-hover: #1e40af;
+            --sidebar-bg: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-active: #ffffff;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+
+            /* Status Colors */
+            --status-success-bg: #dcfce7;
+            --status-success-text: #166534;
+            --status-pending-bg: #fef3c7;
+            --status-pending-text: #92400e;
+            --status-error-bg: #fee2e2;
+            --status-error-text: #991b1b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #0f172a;
+        }
+
+        .brand {
+            padding: 24px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .brand svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .nav-menu {
+            padding: 24px 0;
+            flex: 1;
+        }
+
+        .nav-item {
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            color: var(--sidebar-active);
+            background-color: rgba(255,255,255,0.05);
+            border-left: 3px solid var(--primary-blue);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: calc(100% - 260px);
+        }
+
+        .mobile-header {
+            display: none;
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content-area {
+            padding: 32px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Typography & Header */
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin: 32px 0 16px 0;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        /* Toolbar & Filters */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-group svg {
+            position: absolute;
+            left: 12px;
+            color: var(--text-muted);
+            width: 16px;
+            height: 16px;
+        }
+
+        input[type="text"], input[type="date"] {
+            padding: 8px 12px 8px 36px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            color: var(--text-main);
+            background: white;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="date"] {
+            padding-left: 12px;
+        }
+
+        input:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background-color: white;
+            border-color: var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--bg-color);
+        }
+
+        .btn-icon {
+            padding: 6px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-icon:hover {
+            background: var(--bg-color);
+            color: var(--primary-blue);
+            border-color: var(--border-color);
+        }
+
+        /* File List */
+        .list-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr 1fr 100px;
+            padding: 0 16px 12px 16px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .file-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1.5fr 1fr 100px;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            transition: box-shadow 0.2s;
+        }
+
+        .file-item:hover {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            border-color: #cbd5e1;
+        }
+
+        .file-name {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            color: #0f172a;
+            font-size: 0.875rem;
+            word-break: break-all;
+        }
+
+        .file-icon {
+            color: var(--text-muted);
+            background: var(--bg-color);
+            padding: 8px;
+            border-radius: 6px;
+            display: flex;
+        }
+
+        .file-meta {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: var(--status-success-bg); color: var(--status-success-text); }
+        .badge-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
+        .badge-error { background: var(--status-error-bg); color: var(--status-error-text); }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+
+        .page-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Skeletons & Empty States */
+        .skeleton {
+            background: #e2e8f0;
+            border-radius: 4px;
+            height: 16px;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 24px;
+            background: white;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            color: #cbd5e1;
+            margin-bottom: 16px;
+        }
+
+        .empty-title {
+            font-weight: 500;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .empty-desc {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            max-width: 300px;
+            margin-bottom: 24px;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 900px) {
+            .list-header { display: none; }
+
+            .file-item {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 16px;
+                position: relative;
+            }
+
+            .file-name {
+                width: 100%;
+                font-size: 1rem;
+            }
+
+            .file-meta.status-col {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+            }
+
+            .file-meta.user-col::before { content: 'Por: '; font-weight: 500; }
+            .file-meta.date-col::before { content: 'Em: '; font-weight: 500; }
+
+            .file-meta {
+                font-size: 0.8125rem;
+                width: 100%;
+            }
+
+            .file-actions {
+                width: 100%;
+                border-top: 1px solid var(--border-color);
+                padding-top: 12px;
+                margin-top: 4px;
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .mobile-header { display: flex; }
+            .main-content { width: 100%; }
+            .content-area { padding: 16px; }
+
+            h1 { font-size: 1.25rem; margin-bottom: 16px; }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+            }
+
+            .filters {
+                flex-direction: column;
+            }
+
+            .input-group { width: 100%; }
+            .input-group input { width: 100%; }
+
+            .btn-primary { width: 100%; justify-content: center; }
+
+            .pagination {
+                flex-direction: column;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        CCF
+    </div>
+    <nav class="nav-menu">
+        <a href="#" class="nav-item active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></nav>
+    </a>
+    </nav>
+</aside>
+
+<main class="main-content">
+    <header class="mobile-header">
+        <div style="font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            CCF
+        </div>
+        <button class="btn-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+    </header>
+
+    <div class="content-area">
+        <h1>Arquivos XML</h1>
+
+        <div class="toolbar">
+            <div class="filters">
+                <div class="input-group">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" placeholder="Buscar por nome do arquivo...">
+                </div>
+                <input type="date" aria-label="Data inicial" title="Data Inicial">
+                <input type="date" aria-label="Data final" title="Data Final">
+            </div>
+            <button class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Novo Upload
+            </button>
+        </div>
+
+        <div class="list-header">
+            <div>Nome do Arquivo</div>
+            <div>Status</div>
+            <div>Enviado por</div>
+            <div>Data de Upload</div>
+            <div style="text-align: right;">Ações</div>
+        </div>
+
+        <div class="file-list">
+
+            <div class="file-item">
+                <div class="file-name">
+                    <div class="file-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                    NFe_35231012345678901234550010000001231000001234.xml
+                </div>
+                <div class="file-meta status-col">
+                    <span class="badge badge-success">Processado</span>
+                </div>
+                <div class="file-meta user-col">Carlos Mendes</div>
+                <div class="file-meta date-col">24 Out 2023, 14:30</div>
+                <div class="file-actions">
+                    <button class="btn-icon" title="Ver Detalhes">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <button class="btn-icon" title="Baixar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="file-item">
+                <div class="file-name">
+                    <div class="file-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                    CTe_35231098765432109876570010000009871000009876.xml
+                </div>
+                <div class="file-meta status-col">
+                    <span class="badge badge-pending">Pendente</span>
+                </div>
+                <div class="file-meta user-col">Ana Souza</div>
+                <div class="file-meta date-col">24 Out 2023, 11:15</div>
+                <div class="file-actions">
+                    <button class="btn-icon" title="Ver Detalhes">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <button class="btn-icon" title="Baixar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="file-item">
+                <div class="file-name">
+                    <div class="file-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                    Lote_NFe_Outubro_Revisado_v2_final.xml
+                </div>
+                <div class="file-meta status-col">
+                    <span class="badge badge-error">Erro na Estrutura</span>
+                </div>
+                <div class="file-meta user-col">Roberto Dias</div>
+                <div class="file-meta date-col">23 Out 2023, 16:45</div>
+                <div class="file-actions">
+                    <button class="btn-icon" title="Ver Detalhes">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                    <button class="btn-icon" title="Baixar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="pagination">
+            <div>Mostrando 1 a 3 de 128 arquivos</div>
+            <div class="pagination-controls">
+                <button class="page-btn" disabled>Anterior</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <span style="padding: 6px;">...</span>
+                <button class="page-btn">Próximo</button>
+            </div>
+        </div>
+
+        <div class="section-title">Estados de Interface (Exemplos)</div>
+
+        <div class="file-list" style="margin-bottom: 24px;">
+            <div class="file-item" style="pointer-events: none;">
+                <div class="file-name" style="gap: 12px;">
+                    <div class="skeleton" style="width: 34px; height: 34px; border-radius: 6px;"></div>
+                    <div class="skeleton" style="width: 60%;"></div>
+                </div>
+                <div class="file-meta"><div class="skeleton" style="width: 70px; border-radius: 12px;"></div></div>
+                <div class="file-meta"><div class="skeleton" style="width: 100px;"></div></div>
+                <div class="file-meta"><div class="skeleton" style="width: 120px;"></div></div>
+                <div class="file-actions">
+                    <div class="skeleton" style="width: 30px; height: 30px; border-radius: 4px;"></div>
+                    <div class="skeleton" style="width: 30px; height: 30px; border-radius: 4px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="empty-state">
+            <svg class="empty-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+            <div class="empty-title">Nenhum arquivo encontrado</div>
+            <div class="empty-desc">Não localizamos nenhum arquivo XML correspondente aos filtros aplicados. Tente ajustar sua busca.</div>
+            <button class="btn btn-outline">Limpar Filtros</button>
+        </div>
+
+    </div>
+</main>
+</body>
+</html>

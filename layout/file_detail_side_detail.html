@@ -1,0 +1,733 @@
+
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento de Arquivos - CCF</title>
+    <style>
+        :root {
+            --primary-blue: #1d4ed8;
+            --primary-hover: #1e40af;
+            --primary-light: #eff6ff;
+            --sidebar-bg: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-active: #ffffff;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --border-hover: #cbd5e1;
+
+            /* Status Colors */
+            --status-success-bg: #dcfce7;
+            --status-success-text: #166534;
+            --status-pending-bg: #fef3c7;
+            --status-pending-text: #92400e;
+            --status-error-bg: #fee2e2;
+            --status-error-text: #991b1b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar - Desktop Only */
+        .sidebar {
+            display: none;
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            flex-direction: column;
+            border-right: 1px solid #0f172a;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            padding: 24px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .nav-menu {
+            padding: 24px 0;
+            flex: 1;
+        }
+
+        .nav-item {
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            color: var(--sidebar-active);
+            background-color: rgba(255,255,255,0.05);
+            border-left: 3px solid var(--primary-blue);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .mobile-header {
+            display: flex;
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content-area {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header & Toolbar */
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .search-box {
+            position: relative;
+            flex: 1;
+        }
+
+        .search-box svg {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .input-control {
+            width: 100%;
+            padding: 10px 12px 10px 36px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-control.date-input {
+            padding-left: 12px;
+        }
+
+        .input-control:focus {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: white;
+            box-shadow: 0 1px 2px rgba(29, 78, 216, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background-color: white;
+            border-color: var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--bg-color);
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        /* Split View Container */
+        .split-view {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            flex: 1;
+        }
+
+        .list-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* File List */
+        .list-header {
+            display: none;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            padding: 0 16px 8px 16px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .file-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .file-item:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .file-item.selected {
+            border-color: var(--primary-blue);
+            background-color: var(--primary-light);
+            box-shadow: 0 0 0 1px var(--primary-blue);
+        }
+
+        .file-info-main {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .file-icon {
+            color: var(--text-muted);
+            background: var(--bg-color);
+            padding: 8px;
+            border-radius: 6px;
+            display: flex;
+            flex-shrink: 0;
+        }
+
+        .file-item.selected .file-icon {
+            background: white;
+            color: var(--primary-blue);
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: var(--text-main);
+            font-size: 0.875rem;
+            word-break: break-all;
+            line-height: 1.4;
+            margin-bottom: 4px;
+        }
+
+        .file-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            padding-left: 44px; /* Align with text, bypassing icon */
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-label {
+            font-weight: 500;
+            display: inline-block;
+            width: 60px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: var(--status-success-bg); color: var(--status-success-text); }
+        .badge-pending { background: var(--status-pending-bg); color: var(--status-pending-text); }
+        .badge-error { background: var(--status-error-bg); color: var(--status-error-text); }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 0.875rem;
+        }
+
+        .page-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Details Pane */
+        .details-pane {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .details-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: #fafafa;
+        }
+
+        .details-title-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .details-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-blue);
+            flex-shrink: 0;
+        }
+
+        .details-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            word-break: break-all;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .details-body {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-row {
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .detail-value {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .details-footer {
+            padding: 20px;
+            background: var(--bg-color);
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Desktop Media Queries */
+        @media (min-width: 768px) {
+            .filter-group {
+                flex-direction: row;
+            }
+            .page-header {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .toolbar {
+                flex-direction: row;
+                align-items: center;
+            }
+            .btn-full {
+                width: auto;
+            }
+            .pagination {
+                flex-direction: row;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .sidebar {
+                display: flex;
+            }
+            .mobile-header {
+                display: none;
+            }
+            .content-area {
+                padding: 32px 40px;
+            }
+            .split-view {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+            .list-pane {
+                flex: 1;
+                min-width: 0;
+            }
+            .details-pane {
+                width: 360px;
+                flex-shrink: 0;
+                position: sticky;
+                top: 32px;
+            }
+
+            /* Transform list to a more tabular row format on large screens if desired,
+               but retaining card layout keeps it consistent. We'll adjust internal card layout. */
+            .list-header {
+                display: grid;
+            }
+            .file-item {
+                display: grid;
+                grid-template-columns: 2fr 1fr 1fr 1fr;
+                align-items: center;
+                gap: 16px;
+                padding: 12px 16px;
+            }
+            .file-info-main {
+                align-items: center;
+            }
+            .file-name {
+                margin-bottom: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .file-meta-grid {
+                display: contents; /* Flattens the grid to fit the parent grid */
+            }
+            .meta-item {
+                padding-left: 0;
+            }
+            .meta-label {
+                display: none; /* Hide labels on desktop list since we have a header */
+            }
+        }
+    </style>
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        CCF
+    </div>
+    <nav class="nav-menu">
+        <a href="#" class="nav-item active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Arquivos XML
+        </a>
+    </nav>
+</aside>
+
+<main class="main-content">
+    <header class="mobile-header">
+        <div style="font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            CCF
+        </div>
+        <button style="background: none; border: none; color: var(--text-muted);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+    </header>
+
+    <div class="content-area">
+
+        <div class="page-header">
+            <h1>Arquivos XML</h1>
+            <button class="btn btn-primary btn-full">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Novo Upload
+            </button>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" class="input-control" placeholder="Buscar por nome do arquivo...">
+            </div>
+            <div class="filter-group">
+                <input type="date" class="input-control date-input" aria-label="Data Inicial" title="Data Inicial">
+                <input type="date" class="input-control date-input" aria-label="Data Final" title="Data Final">
+            </div>
+        </div>
+
+        <div class="split-view">
+
+            <div class="list-pane">
+
+                <div class="list-header">
+                    <div>Nome do Arquivo</div>
+                    <div>Status</div>
+                    <div>Enviado por</div>
+                    <div>Data</div>
+                </div>
+
+                <div class="file-item selected">
+                    <div class="file-info-main">
+                        <div class="file-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </div>
+                        <div class="file-name" title="NFe_35231012345678901234550010000001231000001234.xml">
+                            NFe_3523101234567890123455001...xml
+                        </div>
+                    </div>
+                    <div class="file-meta-grid">
+                        <div class="meta-item">
+                            <span class="meta-label">Status:</span>
+                            <span class="badge badge-success">Processado</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Por:</span>
+                            <span>Carlos Mendes</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Data:</span>
+                            <span>24 Out 2023</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div class="file-info-main">
+                        <div class="file-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </div>
+                        <div class="file-name" title="CTe_35231098765432109876570010000009871000009876.xml">
+                            CTe_352310987654321098765700...xml
+                        </div>
+                    </div>
+                    <div class="file-meta-grid">
+                        <div class="meta-item">
+                            <span class="meta-label">Status:</span>
+                            <span class="badge badge-pending">Pendente</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Por:</span>
+                            <span>Ana Souza</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Data:</span>
+                            <span>24 Out 2023</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div class="file-info-main">
+                        <div class="file-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </div>
+                        <div class="file-name" title="Lote_NFe_Outubro_Revisado_v2_final.xml">
+                            Lote_NFe_Outubro_Revisado_v2...xml
+                        </div>
+                    </div>
+                    <div class="file-meta-grid">
+                        <div class="meta-item">
+                            <span class="meta-label">Status:</span>
+                            <span class="badge badge-error">Erro</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Por:</span>
+                            <span>Roberto Dias</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Data:</span>
+                            <span>23 Out 2023</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pagination">
+                    <div>Mostrando 1 a 3 de 128</div>
+                    <div class="pagination-controls">
+                        <button class="page-btn" disabled>Anterior</button>
+                        <button class="page-btn active">1</button>
+                        <button class="page-btn">2</button>
+                        <button class="page-btn">3</button>
+                        <button class="page-btn">Próximo</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="details-pane">
+                <div class="details-header">
+                    <div class="details-title-group">
+                        <div class="details-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </div>
+                        <div>
+                            <div class="details-name">NFe_35231012345678901234550010000001231000001234.xml</div>
+                            <span class="badge badge-success">Processado</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="details-body">
+                    <div class="detail-row">
+                        <span class="detail-label">Enviado por</span>
+                        <span class="detail-value">Carlos Mendes</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Data de Upload</span>
+                        <span class="detail-value">24 Outubro 2023, 14:30</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Tipo de Arquivo</span>
+                        <span class="detail-value">application/xml</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Tamanho do Arquivo</span>
+                        <span class="detail-value">8.5 KB</span>
+                    </div>
+                </div>
+
+                <div class="details-footer">
+                    <button class="btn btn-outline btn-full">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Baixar Arquivo
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</main>
+</body>
+</html>

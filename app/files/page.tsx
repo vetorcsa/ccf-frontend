@@ -1,18 +1,34 @@
 "use client";
 
 import axios from "axios";
-import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "../lib/auth";
 import {
-  FileDetailResponse,
+  FileRecord,
   downloadFile,
   getFileById,
   listFiles,
   ListFilesResponse,
 } from "../services/files.service";
 import { FileDetailsPanel } from "./components/FileDetailsPanel";
+import { FilesFilters } from "./components/FilesFilters";
 import { FilesList } from "./components/FilesList";
+
+const PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 400;
+
+type ActiveFilters = {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+type FilterFormState = {
+  search: string;
+  dateFrom: string;
+  dateTo: string;
+};
 
 function useIsHydrated(): boolean {
   return useSyncExternalStore(
@@ -26,22 +42,29 @@ export default function FilesPage() {
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const token = isHydrated ? getAccessToken() : null;
-  const [isLoadingList, setIsLoadingList] = useState(true);
-  const [listErrorMessage, setListErrorMessage] = useState("");
-  const [downloadErrorMessage, setDownloadErrorMessage] = useState("");
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
   const [filesResponse, setFilesResponse] = useState<ListFilesResponse | null>(null);
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<FilterFormState>({
+    search: "",
+    dateFrom: "",
+    dateTo: "",
+  });
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({});
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [selectedFileDetails, setSelectedFileDetails] = useState<FileDetailResponse | null>(null);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [detailsErrorMessage, setDetailsErrorMessage] = useState("");
+  const [selectedFile, setSelectedFile] = useState<FileRecord | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+  const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState("");
 
   const currentPage = filesResponse?.page ?? page;
   const totalPages = Math.max(1, filesResponse?.totalPages ?? 1);
   const total = filesResponse?.total ?? 0;
+  const pageSize = filesResponse?.pageSize ?? PAGE_SIZE;
+  const normalizedSearch = filters.search.trim() || undefined;
 
   useEffect(() => {
     if (isHydrated && !token) {
@@ -57,15 +80,14 @@ export default function FilesPage() {
     let isActive = true;
 
     async function loadFiles() {
-      setIsLoadingList(true);
-      setListErrorMessage("");
-      setDownloadErrorMessage("");
+      setListLoading(true);
+      setListError("");
 
       try {
         const data = await listFiles({
           page,
-          pageSize: 10,
-          search: search || undefined,
+          pageSize: PAGE_SIZE,
+          ...activeFilters,
         });
 
         if (!isActive) {
@@ -86,10 +108,10 @@ export default function FilesPage() {
           }
         }
 
-        setListErrorMessage("Não foi possível carregar a lista de arquivos.");
+        setListError("Não foi possível carregar os arquivos.");
       } finally {
         if (isActive) {
-          setIsLoadingList(false);
+          setListLoading(false);
         }
       }
     }
@@ -99,21 +121,21 @@ export default function FilesPage() {
     return () => {
       isActive = false;
     };
-  }, [isHydrated, token, page, search, router]);
+  }, [isHydrated, token, page, activeFilters, router]);
 
   useEffect(() => {
     if (!isHydrated || !token || !selectedFileId) {
-      setSelectedFileDetails(null);
-      setDetailsErrorMessage("");
-      setIsLoadingDetails(false);
+      setSelectedFile(null);
+      setDetailsError("");
+      setDetailsLoading(false);
       return;
     }
 
     let isActive = true;
 
-    async function loadFileDetails() {
-      setIsLoadingDetails(true);
-      setDetailsErrorMessage("");
+    async function loadDetails() {
+      setDetailsLoading(true);
+      setDetailsError("");
 
       try {
         const data = await getFileById(selectedFileId);
@@ -122,7 +144,7 @@ export default function FilesPage() {
           return;
         }
 
-        setSelectedFileDetails(data);
+        setSelectedFile(data);
       } catch (error) {
         if (!isActive) {
           return;
@@ -136,20 +158,45 @@ export default function FilesPage() {
           }
         }
 
-        setDetailsErrorMessage("Não foi possível carregar os detalhes do arquivo.");
+        setDetailsError("Não foi possível carregar os detalhes do arquivo.");
       } finally {
         if (isActive) {
-          setIsLoadingDetails(false);
+          setDetailsLoading(false);
         }
       }
     }
 
-    void loadFileDetails();
+    void loadDetails();
 
     return () => {
       isActive = false;
     };
   }, [isHydrated, token, selectedFileId, router]);
+
+  useEffect(() => {
+    if (!isHydrated || !token) {
+      return;
+    }
+
+    if (activeFilters.search === normalizedSearch) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPage(1);
+      setIsMobileDetailsOpen(false);
+      setSelectedFileId(null);
+      setSelectedFile(null);
+      setActiveFilters((previous) => ({
+        ...previous,
+        search: normalizedSearch,
+      }));
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeFilters.search, isHydrated, normalizedSearch, token]);
 
   const dateFormatter = useMemo(
     () =>
@@ -160,31 +207,57 @@ export default function FilesPage() {
     [],
   );
 
-  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function applyFilters() {
     setPage(1);
+    setIsMobileDetailsOpen(false);
     setSelectedFileId(null);
-    setSelectedFileDetails(null);
-    setSearch(searchInput.trim());
+    setSelectedFile(null);
+    setActiveFilters({
+      search: normalizedSearch,
+      dateFrom: filters.dateFrom || undefined,
+      dateTo: filters.dateTo || undefined,
+    });
+  }
+
+  function resetFilters() {
+    setFilters({
+      search: "",
+      dateFrom: "",
+      dateTo: "",
+    });
+    setPage(1);
+    setIsMobileDetailsOpen(false);
+    setSelectedFileId(null);
+    setSelectedFile(null);
+    setActiveFilters({});
+  }
+
+  function openMobileDetails(fileId: string) {
+    setSelectedFileId(fileId);
+    setIsMobileDetailsOpen(true);
+  }
+
+  function closeMobileDetails() {
+    setIsMobileDetailsOpen(false);
   }
 
   async function handleDownload(fileId: string, fallbackName: string) {
+    setDownloadError("");
     setDownloadingFileId(fileId);
-    setDownloadErrorMessage("");
 
     try {
       const { blob, fileName } = await downloadFile(fileId);
-      const downloadUrl = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
 
-      link.href = downloadUrl;
+      link.href = url;
       link.download = fileName ?? fallbackName;
       document.body.append(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(downloadUrl);
+      URL.revokeObjectURL(url);
     } catch {
-      setDownloadErrorMessage("Não foi possível baixar o arquivo selecionado.");
+      setDownloadError("Não foi possível baixar o arquivo selecionado.");
     } finally {
       setDownloadingFileId(null);
     }
@@ -192,7 +265,7 @@ export default function FilesPage() {
 
   if (!isHydrated) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
+      <main className="flex min-h-dvh items-center justify-center bg-slate-100 px-4">
         <p className="text-sm text-slate-600">Verificando acesso...</p>
       </main>
     );
@@ -203,98 +276,172 @@ export default function FilesPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-blue-50 to-slate-100 px-4 py-5 sm:py-8">
-      <div className="mx-auto w-full max-w-7xl space-y-4 sm:space-y-5">
-        <section className="rounded-2xl border border-blue-800/70 bg-gradient-to-r from-blue-950 via-blue-900 to-blue-800 px-4 py-5 text-white shadow-[0_16px_40px_rgba(30,64,175,0.26)] sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-100">
-            Fiscal / Documentos
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Arquivos Fiscais
-          </h1>
-          <p className="mt-1 text-sm text-blue-100">
-            Listagem e consulta de arquivos XML enviados para o sistema.
-          </p>
-        </section>
-
-        <section className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:p-5">
-          <form onSubmit={handleSearchSubmit} className="flex flex-col gap-2 md:flex-row">
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Buscar por nome do arquivo"
-              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            />
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="h-10 rounded-xl bg-blue-800 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Filtrar
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Upload será implementado no próximo passo."
-                className="h-10 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-800 opacity-80"
-              >
-                Novo Upload
-              </button>
-            </div>
-          </form>
-
-          {downloadErrorMessage ? (
-            <p className="mt-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-              {downloadErrorMessage}
+      <main className="flex h-dvh overflow-hidden bg-slate-50">
+        <aside className="hidden w-[260px] shrink-0 flex-col border-r border-slate-950 bg-slate-800 text-slate-300 lg:flex lg:h-full">
+          <div className="border-b border-white/10 px-6 py-6">
+            <p className="text-xl font-semibold text-white">CCF</p>
+          </div>
+          <nav className="px-0 py-4">
+            <p className="border-l-2 border-blue-600 bg-white/5 px-6 py-3 text-sm font-medium text-white">
+              Arquivos XML
             </p>
-          ) : null}
-        </section>
+          </nav>
+        </aside>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
-          <FilesList
-            files={filesResponse?.data ?? []}
-            selectedFileId={selectedFileId}
-            isLoading={isLoadingList}
-            errorMessage={listErrorMessage}
-            total={total}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            downloadingFileId={downloadingFileId}
-            onSelectFile={setSelectedFileId}
-            onDownloadFile={(file) => handleDownload(file.id, file.originalName)}
-            onPreviousPage={() => {
-              setSelectedFileId(null);
-              setSelectedFileDetails(null);
-              setPage((previous) => Math.max(1, previous - 1));
-            }}
-            onNextPage={() => {
-              setSelectedFileId(null);
-              setSelectedFileDetails(null);
-              setPage((previous) => previous + 1);
-            }}
-            formatDate={(value) => dateFormatter.format(new Date(value))}
-          />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4 lg:hidden">
+            <div className="flex items-center gap-2">
+              <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 text-blue-700"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+              >
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+              <p className="text-sm font-semibold text-slate-900">CCF</p>
+            </div>
+            <p className="text-sm font-medium text-slate-700">Arquivos XML</p>
+          </header>
 
-          <FileDetailsPanel
-            selectedFileId={selectedFileId}
-            fileDetail={selectedFileDetails}
-            isLoading={isLoadingDetails}
-            errorMessage={detailsErrorMessage}
-            isDownloading={
-              downloadingFileId !== null && selectedFileDetails?.id === downloadingFileId
-            }
-            onDownload={() => {
-              if (!selectedFileDetails) {
-                return;
-              }
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-5 sm:px-5 lg:px-10 lg:py-8">
+            <div className="mx-auto flex h-full min-h-0 w-full max-w-[1280px] flex-col">
+              <div className="mb-4 flex flex-col gap-3 md:mb-6 md:flex-row md:items-center md:justify-between">
+                <h1 className="text-2xl font-semibold text-slate-900">Arquivos XML</h1>
+                <button
+                    type="button"
+                    disabled
+                    title="Upload será implementado no próximo passo."
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-70 md:w-auto"
+                >
+                  <svg
+                      viewBox="0 0 24 24"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Novo Upload
+                </button>
+              </div>
 
-              void handleDownload(selectedFileDetails.id, selectedFileDetails.originalName);
-            }}
-            formatDate={(value) => dateFormatter.format(new Date(value))}
-          />
+              <FilesFilters
+                  values={filters}
+                  onChange={(field, value) =>
+                      setFilters((previous) => ({
+                        ...previous,
+                        [field]: value,
+                      }))
+                  }
+                  onSubmit={applyFilters}
+                  onReset={resetFilters}
+                  isLoading={listLoading}
+              />
+
+              {downloadError ? (
+                  <p className="mt-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    {downloadError}
+                  </p>
+              ) : null}
+
+              <section className="mt-4 flex min-h-0 flex-1 flex-col gap-5 lg:mt-6 lg:flex-row lg:overflow-hidden">
+                <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+                  <FilesList
+                      files={filesResponse?.data ?? []}
+                      selectedFileId={selectedFileId}
+                      isLoading={listLoading}
+                      errorMessage={listError}
+                      total={total}
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={pageSize}
+                      downloadingFileId={downloadingFileId}
+                      onSelectFile={setSelectedFileId}
+                      onOpenDetails={openMobileDetails}
+                      onDownloadFile={(file) => handleDownload(file.id, file.originalName)}
+                      onPreviousPage={() => {
+                        setPage((previous) => Math.max(1, previous - 1));
+                        setIsMobileDetailsOpen(false);
+                        setSelectedFileId(null);
+                        setSelectedFile(null);
+                      }}
+                      onNextPage={() => {
+                        setPage((previous) => previous + 1);
+                        setIsMobileDetailsOpen(false);
+                        setSelectedFileId(null);
+                        setSelectedFile(null);
+                      }}
+                      formatDate={(value) => dateFormatter.format(new Date(value))}
+                  />
+                </div>
+
+                <div className="hidden lg:min-h-0 lg:block lg:w-[360px] lg:shrink-0 lg:overflow-hidden">
+                  <FileDetailsPanel
+                      selectedFileId={selectedFileId}
+                      file={selectedFile}
+                      isLoading={detailsLoading}
+                      errorMessage={detailsError}
+                      isDownloading={selectedFile?.id === downloadingFileId}
+                      onDownload={() => {
+                        if (!selectedFile) return;
+                        void handleDownload(selectedFile.id, selectedFile.originalName);
+                      }}
+                      formatDate={(value) => dateFormatter.format(new Date(value))}
+                  />
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+
+        {isMobileDetailsOpen ? (
+            <div
+                className="fixed inset-0 z-50 flex items-end lg:hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Detalhes do arquivo"
+            >
+              <button
+                  type="button"
+                  onClick={closeMobileDetails}
+                  aria-label="Fechar detalhes"
+                  className="absolute inset-0 bg-slate-900/35"
+              />
+
+              <div className="relative z-10 w-full max-h-[88dvh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-slate-50 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl">
+                <div className="mb-2 flex justify-end">
+                  <button
+                      type="button"
+                      onClick={closeMobileDetails}
+                      className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                <FileDetailsPanel
+                    selectedFileId={selectedFileId}
+                    file={selectedFile}
+                    isLoading={detailsLoading}
+                    errorMessage={detailsError}
+                    isDownloading={selectedFile?.id === downloadingFileId}
+                    onDownload={() => {
+                      if (!selectedFile) return;
+                      void handleDownload(selectedFile.id, selectedFile.originalName);
+                    }}
+                    formatDate={(value) => dateFormatter.format(new Date(value))}
+                />
+              </div>
+            </div>
+        ) : null}
+      </main>
   );
 }

@@ -1,0 +1,429 @@
+
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes do Arquivo - CCF</title>
+    <style>
+        :root {
+            --primary-blue: #1d4ed8;
+            --primary-hover: #1e40af;
+            --sidebar-bg: #1e293b;
+            --sidebar-text: #94a3b8;
+            --sidebar-active: #ffffff;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+
+            /* Status Colors */
+            --status-success-bg: #dcfce7;
+            --status-success-text: #166534;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #0f172a;
+        }
+
+        .brand {
+            padding: 24px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .brand svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .nav-menu {
+            padding: 24px 0;
+            flex: 1;
+        }
+
+        .nav-item {
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            color: var(--sidebar-active);
+            background-color: rgba(255,255,255,0.05);
+            border-left: 3px solid var(--primary-blue);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .mobile-header {
+            display: flex;
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content-area {
+            padding: 24px 16px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .content-wrapper {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Breadcrumb / Actions */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+            align-self: flex-start;
+        }
+
+        .breadcrumb:hover {
+            color: var(--primary-blue);
+        }
+
+        .breadcrumb svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Detail Card */
+        .detail-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .file-icon-large {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .file-title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .file-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--status-success-bg);
+            color: var(--status-success-text);
+            letter-spacing: 0.02em;
+        }
+
+        .card-body {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-row {
+            padding: 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .card-footer {
+            padding: 24px;
+            background: var(--bg-color);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-blue);
+            color: white;
+            box-shadow: 0 1px 2px rgba(29, 78, 216, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background-color: white;
+            border-color: var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--bg-color);
+        }
+
+        /* Desktop Adjustments */
+        @media (min-width: 769px) {
+            .mobile-header {
+                display: none;
+            }
+
+            .main-content {
+                width: calc(100% - 260px);
+            }
+
+            .content-area {
+                padding: 40px 48px;
+            }
+
+            .card-header {
+                flex-direction: row;
+                align-items: flex-start;
+                gap: 20px;
+            }
+
+            .file-title-group {
+                gap: 8px;
+            }
+
+            .file-title {
+                font-size: 1.5rem;
+            }
+
+            .info-row {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 20px 24px;
+            }
+
+            .info-label {
+                width: 30%;
+                margin-bottom: 0;
+            }
+
+            .info-value {
+                width: 70%;
+                text-align: right;
+            }
+
+            .card-footer {
+                flex-direction: row;
+                justify-content: flex-end;
+                padding: 20px 24px;
+            }
+
+            .btn {
+                width: auto;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+        CCF
+    </div>
+    <nav class="nav-menu">
+        <a href="#" class="nav-item active">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Arquivos XML
+        </a>
+    </nav>
+</aside>
+
+<main class="main-content">
+    <header class="mobile-header">
+        <div style="font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            CCF
+        </div>
+        <button style="background: transparent; border: none; color: var(--text-muted);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+    </header>
+
+    <div class="content-area">
+        <div class="content-wrapper">
+
+            <a href="#" class="breadcrumb">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Voltar para Arquivos XML
+            </a>
+
+            <div class="detail-card">
+
+                <div class="card-header">
+                    <div class="file-icon-large">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    </div>
+                    <div class="file-title-group">
+                        <h1 class="file-title">NFe_35231012345678901234550010000001231000001234.xml</h1>
+                        <span class="badge">Processado</span>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="info-row">
+                        <span class="info-label">Enviado por</span>
+                        <span class="info-value">Carlos Mendes</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Data de Upload</span>
+                        <span class="info-value">24 Out 2023, 14:30</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Tipo de Arquivo</span>
+                        <span class="info-value">Documento XML (application/xml)</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Tamanho do Arquivo</span>
+                        <span class="info-value">8.5 KB</span>
+                    </div>
+                </div>
+
+                <div class="card-footer">
+                    <button class="btn btn-outline">
+                        Visualizar Bruto
+                    </button>
+                    <button class="btn btn-primary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Baixar Arquivo
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</main>
+</body>
+</html>
