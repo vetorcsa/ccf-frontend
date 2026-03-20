@@ -38,6 +38,10 @@ export type DownloadFileResponse = {
   fileName: string | null;
 };
 
+export type UploadFileResponse = {
+  id: string;
+};
+
 function parseFileNameFromContentDisposition(header?: string): string | null {
   if (!header) {
     return null;
@@ -83,4 +87,17 @@ export async function downloadFile(id: string): Promise<DownloadFileResponse> {
     blob: response.data,
     fileName: parseFileNameFromContentDisposition(response.headers["content-disposition"]),
   };
+}
+
+export async function uploadFile(file: File): Promise<UploadFileResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const { data } = await api.post<UploadFileResponse>("/files/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return data;
 }

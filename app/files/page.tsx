@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "../lib/auth";
 import {
@@ -10,13 +10,16 @@ import {
   getFileById,
   listFiles,
   ListFilesResponse,
+  uploadFile as uploadFileRequest,
 } from "../services/files.service";
 import { FileDetailsPanel } from "./components/FileDetailsPanel";
 import { FilesFilters } from "./components/FilesFilters";
 import { FilesList } from "./components/FilesList";
+import { UploadModal } from "./components/UploadModal";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
+const UPLOAD_SUCCESS_CLOSE_DELAY_MS = 700;
 
 type ActiveFilters = {
   search?: string;
@@ -41,10 +44,12 @@ function useIsHydrated(): boolean {
 export default function FilesPage() {
   const router = useRouter();
   const isHydrated = useIsHydrated();
+  const uploadCloseTimeoutRef = useRef<number | null>(null);
   const token = isHydrated ? getAccessToken() : null;
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
   const [filesResponse, setFilesResponse] = useState<ListFilesResponse | null>(null);
+  const [listRefreshTrigger, setListRefreshTrigger] = useState(0);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FilterFormState>({
     search: "",
@@ -59,6 +64,11 @@ export default function FilesPage() {
   const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState("");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
 
   const currentPage = filesResponse?.page ?? page;
   const totalPages = Math.max(1, filesResponse?.totalPages ?? 1);
@@ -121,7 +131,15 @@ export default function FilesPage() {
     return () => {
       isActive = false;
     };
-  }, [isHydrated, token, page, activeFilters, router]);
+  }, [isHydrated, token, page, activeFilters, listRefreshTrigger, router]);
+
+  useEffect(() => {
+    return () => {
+      if (uploadCloseTimeoutRef.current) {
+        window.clearTimeout(uploadCloseTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isHydrated || !token || !selectedFileId) {
@@ -241,6 +259,95 @@ export default function FilesPage() {
     setIsMobileDetailsOpen(false);
   }
 
+  function resetUploadState() {
+    setSelectedUploadFile(null);
+    setUploadLoading(false);
+    setUploadError("");
+    setUploadSuccess("");
+  }
+
+  function openUploadModal() {
+    if (uploadCloseTimeoutRef.current) {
+      window.clearTimeout(uploadCloseTimeoutRef.current);
+      uploadCloseTimeoutRef.current = null;
+    }
+
+    resetUploadState();
+    setIsUploadModalOpen(true);
+  }
+
+  function closeUploadModal() {
+    if (uploadLoading) {
+      return;
+    }
+
+    if (uploadCloseTimeoutRef.current) {
+      window.clearTimeout(uploadCloseTimeoutRef.current);
+      uploadCloseTimeoutRef.current = null;
+    }
+
+    setIsUploadModalOpen(false);
+    resetUploadState();
+  }
+
+  function isXmlFile(file: File): boolean {
+    const name = file.name.toLowerCase();
+    const mime = file.type.toLowerCase();
+    return name.endsWith(".xml") || mime.includes("xml");
+  }
+
+  function extractUploadErrorMessage(error: unknown): string {
+    if (!axios.isAxiosError(error)) {
+      return "Não foi possível concluir o upload do arquivo.";
+    }
+
+    const responseData = error.response?.data;
+    if (
+      typeof responseData === "object" &&
+      responseData !== null &&
+      "message" in responseData &&
+      typeof responseData.message === "string"
+    ) {
+      return responseData.message;
+    }
+
+    return "Não foi possível concluir o upload do arquivo.";
+  }
+
+  async function handleUploadFile() {
+    if (!selectedUploadFile) {
+      setUploadError("Selecione um arquivo XML para continuar.");
+      setUploadSuccess("");
+      return;
+    }
+
+    if (!isXmlFile(selectedUploadFile)) {
+      setUploadError("Arquivo inválido. Selecione um XML (.xml).");
+      setUploadSuccess("");
+      return;
+    }
+
+    setUploadLoading(true);
+    setUploadError("");
+    setUploadSuccess("");
+
+    try {
+      await uploadFileRequest(selectedUploadFile);
+      setUploadSuccess("Upload concluído com sucesso.");
+      setListRefreshTrigger((previous) => previous + 1);
+
+      uploadCloseTimeoutRef.current = window.setTimeout(() => {
+        setIsUploadModalOpen(false);
+        resetUploadState();
+        uploadCloseTimeoutRef.current = null;
+      }, UPLOAD_SUCCESS_CLOSE_DELAY_MS);
+    } catch (error) {
+      setUploadError(extractUploadErrorMessage(error));
+    } finally {
+      setUploadLoading(false);
+    }
+  }
+
   async function handleDownload(fileId: string, fallbackName: string) {
     setDownloadError("");
     setDownloadingFileId(fileId);
@@ -313,8 +420,7 @@ export default function FilesPage() {
                 <h1 className="text-2xl font-semibold text-slate-900">Arquivos XML</h1>
                 <button
                     type="button"
-                    disabled
-                    title="Upload será implementado no próximo passo."
+                    onClick={openUploadModal}
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-70 md:w-auto"
                 >
                   <svg
@@ -442,6 +548,23 @@ export default function FilesPage() {
               </div>
             </div>
         ) : null}
+
+        <UploadModal
+          isOpen={isUploadModalOpen}
+          selectedFile={selectedUploadFile}
+          isSubmitting={uploadLoading}
+          errorMessage={uploadError}
+          successMessage={uploadSuccess}
+          onClose={closeUploadModal}
+          onConfirm={() => {
+            void handleUploadFile();
+          }}
+          onSelectFile={(file) => {
+            setSelectedUploadFile(file);
+            setUploadError("");
+            setUploadSuccess("");
+          }}
+        />
       </main>
   );
 }
