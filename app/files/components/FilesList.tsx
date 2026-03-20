@@ -1,4 +1,5 @@
 import { FileRecord } from "../../services/files.service";
+import { getFileStatusBadgeClass, getFileStatusLabel } from "../utils/fileStatus";
 
 type FilesListProps = {
   files: FileRecord[];
@@ -18,20 +19,6 @@ type FilesListProps = {
   formatDate: (value: string) => string;
 };
 
-function statusBadgeClass(status: string): string {
-  const normalized = status.toLowerCase();
-
-  if (normalized.includes("erro") || normalized.includes("error")) {
-    return "bg-rose-100 text-rose-700";
-  }
-
-  if (normalized.includes("process")) {
-    return "bg-emerald-100 text-emerald-700";
-  }
-
-  return "bg-amber-100 text-amber-700";
-}
-
 export function FilesList({
                             files,
                             selectedFileId,
@@ -49,6 +36,9 @@ export function FilesList({
                             onNextPage,
                           formatDate,
                           }: FilesListProps) {
+  const hasPreviousPage = currentPage > 1;
+  const hasNextPage = currentPage < totalPages;
+
   return (
       <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
         <header className="hidden grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 lg:grid">
@@ -58,33 +48,43 @@ export function FilesList({
           <span>Data</span>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain lg:p-4">
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-3 py-3 lg:p-4">
           {isLoading ? (
-              <p className="rounded-lg border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
-                Carregando arquivos...
-              </p>
+              <div className="rounded-lg border border-slate-200 bg-white px-4 py-4">
+                <p className="text-sm font-medium text-slate-700">Carregando arquivos...</p>
+                <div className="mt-3 space-y-2">
+                  <div className="h-3 w-3/4 animate-pulse rounded bg-slate-200"></div>
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200"></div>
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200"></div>
+                </div>
+              </div>
           ) : null}
 
           {!isLoading && errorMessage ? (
-              <p className="rounded-lg border border-rose-100 bg-rose-50 px-4 py-4 text-sm text-rose-700">
-                {errorMessage}
-              </p>
+              <div className="rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <p className="font-medium">Não foi possível carregar a lista.</p>
+                <p className="mt-1 text-xs text-rose-600">{errorMessage}</p>
+              </div>
           ) : null}
 
           {!isLoading && !errorMessage && files.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-600">
-                Nenhum arquivo encontrado para os filtros informados.
-              </p>
+              <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-center">
+                <p className="text-sm font-medium text-slate-700">Nenhum arquivo encontrado</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Ajuste os filtros e tente novamente.
+                </p>
+              </div>
           ) : null}
 
           {!isLoading && !errorMessage
               ? files.map((file) => {
                 const isSelected = file.id === selectedFileId;
+                const statusLabel = getFileStatusLabel(file.status);
 
                 return (
                     <article
                         key={file.id}
-                        className={`rounded-lg border p-3 transition lg:p-4 ${
+                        className={`rounded-lg border p-3 transition hover:shadow-sm lg:p-4 ${
                             isSelected
                                 ? "border-blue-600 bg-blue-50/60 shadow-[0_0_0_1px_rgba(29,78,216,0.45)]"
                                 : "border-slate-200 hover:border-slate-300"
@@ -93,7 +93,7 @@ export function FilesList({
                       <button
                           type="button"
                           onClick={() => onSelectFile(file.id)}
-                          className="block w-full text-left"
+                          className="block w-full cursor-pointer text-left"
                       >
                         <div className="flex items-start gap-2.5 lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr] lg:items-center lg:gap-4">
                           <div className="min-w-0">
@@ -102,18 +102,18 @@ export function FilesList({
                             </p>
                             <div className="mt-1 lg:hidden">
                               <span
-                                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(file.status)}`}
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${getFileStatusBadgeClass(file.status)}`}
                               >
-                                {file.status}
+                                {statusLabel}
                               </span>
                             </div>
                           </div>
 
                           <div className="hidden lg:block">
                             <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(file.status)}`}
+                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getFileStatusBadgeClass(file.status)}`}
                             >
-                              {file.status}
+                              {statusLabel}
                             </span>
                           </div>
 
@@ -141,7 +141,7 @@ export function FilesList({
                         <button
                             type="button"
                             onClick={() => onOpenDetails(file.id)}
-                            className="h-9 rounded-md bg-blue-700 px-3 text-xs font-medium text-white transition hover:bg-blue-800"
+                            className="h-9 cursor-pointer rounded-md bg-blue-700 px-3 text-xs font-medium text-white transition hover:bg-blue-800"
                         >
                           Ver detalhes
                         </button>
@@ -149,7 +149,7 @@ export function FilesList({
                             type="button"
                             onClick={() => onDownloadFile(file)}
                             disabled={downloadingFileId === file.id}
-                            className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-9 cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {downloadingFileId === file.id ? "Baixando..." : "Download"}
                         </button>
@@ -160,7 +160,7 @@ export function FilesList({
                             type="button"
                             onClick={() => onDownloadFile(file)}
                             disabled={downloadingFileId === file.id}
-                            className="h-8 rounded-md border border-slate-300 px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-8 cursor-pointer rounded-md border border-slate-300 px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {downloadingFileId === file.id ? "Baixando..." : "Baixar"}
                         </button>
@@ -182,20 +182,34 @@ export function FilesList({
                 type="button"
                 onClick={onPreviousPage}
                 disabled={isLoading || currentPage <= 1}
-                className="inline-flex h-8 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="inline-flex h-8 w-full cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Anterior
             </button>
 
-            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-blue-700 bg-blue-700 px-2 text-sm font-medium text-white">
-            {currentPage}
-          </span>
+            <div className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-1">
+              {hasPreviousPage ? (
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-slate-200 px-1.5 text-xs font-medium text-slate-500">
+                    {currentPage - 1}
+                  </span>
+              ) : null}
+
+              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-blue-700 bg-blue-700 px-1.5 text-xs font-semibold text-white">
+                {currentPage}
+              </span>
+
+              {hasNextPage ? (
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-slate-200 px-1.5 text-xs font-medium text-slate-500">
+                    {currentPage + 1}
+                  </span>
+              ) : null}
+            </div>
 
             <button
                 type="button"
                 onClick={onNextPage}
                 disabled={isLoading || currentPage >= totalPages}
-                className="inline-flex h-8 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="inline-flex h-8 w-full cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
               Próximo
             </button>

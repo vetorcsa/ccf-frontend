@@ -3,6 +3,7 @@
 import axios from "axios";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { getAccessToken } from "../lib/auth";
 import {
   FileRecord,
@@ -20,6 +21,7 @@ import { UploadModal } from "./components/UploadModal";
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 const UPLOAD_SUCCESS_CLOSE_DELAY_MS = 700;
+const SIDEBAR_LOGO_PATH = "/ui/logo-ccf.png";
 
 type ActiveFilters = {
   search?: string;
@@ -31,6 +33,11 @@ type FilterFormState = {
   search: string;
   dateFrom: string;
   dateTo: string;
+};
+
+type PageNotice = {
+  type: "success" | "error";
+  message: string;
 };
 
 function useIsHydrated(): boolean {
@@ -63,7 +70,7 @@ export default function FilesPage() {
   const [detailsError, setDetailsError] = useState("");
   const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState("");
+  const [pageNotice, setPageNotice] = useState<PageNotice | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -140,6 +147,20 @@ export default function FilesPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!pageNotice || pageNotice.type !== "success") {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPageNotice(null);
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [pageNotice]);
 
   useEffect(() => {
     if (!isHydrated || !token || !selectedFileId) {
@@ -277,7 +298,7 @@ export default function FilesPage() {
   }
 
   function closeUploadModal() {
-    if (uploadLoading) {
+    if (uploadLoading || !!uploadSuccess) {
       return;
     }
 
@@ -305,10 +326,12 @@ export default function FilesPage() {
     if (
       typeof responseData === "object" &&
       responseData !== null &&
-      "message" in responseData &&
-      typeof responseData.message === "string"
+      "message" in responseData
     ) {
-      return responseData.message;
+      const typedData = responseData as { message?: unknown };
+      if (typeof typedData.message === "string") {
+        return typedData.message;
+      }
     }
 
     return "Não foi possível concluir o upload do arquivo.";
@@ -330,11 +353,16 @@ export default function FilesPage() {
     setUploadLoading(true);
     setUploadError("");
     setUploadSuccess("");
+    setPageNotice(null);
 
     try {
       await uploadFileRequest(selectedUploadFile);
       setUploadSuccess("Upload concluído com sucesso.");
       setListRefreshTrigger((previous) => previous + 1);
+      setPageNotice({
+        type: "success",
+        message: "Arquivo enviado com sucesso. A lista foi atualizada.",
+      });
 
       uploadCloseTimeoutRef.current = window.setTimeout(() => {
         setIsUploadModalOpen(false);
@@ -349,7 +377,7 @@ export default function FilesPage() {
   }
 
   async function handleDownload(fileId: string, fallbackName: string) {
-    setDownloadError("");
+    setPageNotice(null);
     setDownloadingFileId(fileId);
 
     try {
@@ -364,7 +392,10 @@ export default function FilesPage() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch {
-      setDownloadError("Não foi possível baixar o arquivo selecionado.");
+      setPageNotice({
+        type: "error",
+        message: "Não foi possível baixar o arquivo selecionado.",
+      });
     } finally {
       setDownloadingFileId(null);
     }
@@ -385,8 +416,15 @@ export default function FilesPage() {
   return (
       <main className="flex h-dvh overflow-hidden bg-slate-50">
         <aside className="hidden w-[260px] shrink-0 flex-col border-r border-slate-950 bg-slate-800 text-slate-300 lg:flex lg:h-full">
-          <div className="border-b border-white/10 px-6 py-6">
-            <p className="text-xl font-semibold text-white">CCF</p>
+          <div className="border-b border-white/10 px-6 py-5">
+            <Image
+              src={SIDEBAR_LOGO_PATH}
+              alt="CCF"
+              width={2816}
+              height={1536}
+              priority
+              className="block h-auto w-[136px] max-w-full object-contain"
+            />
           </div>
           <nav className="px-0 py-4">
             <p className="border-l-2 border-blue-600 bg-white/5 px-6 py-3 text-sm font-medium text-white">
@@ -421,7 +459,7 @@ export default function FilesPage() {
                 <button
                     type="button"
                     onClick={openUploadModal}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-70 md:w-auto"
+                    className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:opacity-70 md:w-auto"
                 >
                   <svg
                       viewBox="0 0 24 24"
@@ -452,10 +490,23 @@ export default function FilesPage() {
                   isLoading={listLoading}
               />
 
-              {downloadError ? (
-                  <p className="mt-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                    {downloadError}
-                  </p>
+              {pageNotice ? (
+                  <div
+                      className={`mt-3 flex items-start justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
+                          pageNotice.type === "success"
+                              ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                              : "border-rose-100 bg-rose-50 text-rose-700"
+                      }`}
+                  >
+                    <p>{pageNotice.message}</p>
+                    <button
+                        type="button"
+                        onClick={() => setPageNotice(null)}
+                        className="shrink-0 cursor-pointer rounded-md px-1.5 py-0.5 text-xs font-medium text-current transition hover:bg-white/40"
+                    >
+                      Fechar
+                    </button>
+                  </div>
               ) : null}
 
               <section className="mt-4 flex min-h-0 flex-1 flex-col gap-5 lg:mt-6 lg:flex-row lg:overflow-hidden">
@@ -519,7 +570,7 @@ export default function FilesPage() {
                   type="button"
                   onClick={closeMobileDetails}
                   aria-label="Fechar detalhes"
-                  className="absolute inset-0 bg-slate-900/35"
+                  className="absolute inset-0 cursor-pointer bg-slate-900/35"
               />
 
               <div className="relative z-10 w-full max-h-[88dvh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-slate-50 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-2xl">
@@ -527,7 +578,7 @@ export default function FilesPage() {
                   <button
                       type="button"
                       onClick={closeMobileDetails}
-                      className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                      className="h-8 cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     Fechar
                   </button>

@@ -72,7 +72,7 @@ export function FilesFilters({
             type="button"
             onClick={onSubmit}
             disabled={isLoading}
-            className="h-9 rounded-md bg-blue-700 px-3 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60 lg:h-10"
+            className="h-9 cursor-pointer rounded-md bg-blue-700 px-3 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60 lg:h-10"
           >
             Filtrar
           </button>
@@ -80,7 +80,7 @@ export function FilesFilters({
             type="button"
             onClick={onReset}
             disabled={isLoading}
-            className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 lg:h-10"
+            className="h-9 cursor-pointer rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 lg:h-10"
           >
             Limpar
           </button>

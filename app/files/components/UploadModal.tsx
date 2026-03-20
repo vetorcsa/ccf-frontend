@@ -23,6 +23,9 @@ export function UploadModal({
     return null;
   }
 
+  const isLocked = isSubmitting || !!successMessage;
+  const isConfirmDisabled = isLocked || !selectedFile;
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/45 sm:items-center sm:p-4"
@@ -33,8 +36,9 @@ export function UploadModal({
       <button
         type="button"
         onClick={onClose}
+        disabled={isLocked}
         aria-label="Fechar modal de upload"
-        className="absolute inset-0"
+        className="absolute inset-0 cursor-pointer disabled:cursor-not-allowed"
       />
 
       <div className="relative z-10 w-full rounded-t-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:max-w-xl sm:rounded-2xl sm:p-5">
@@ -49,8 +53,8 @@ export function UploadModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLocked}
+            className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Fechar"
           >
             ×
@@ -60,7 +64,11 @@ export function UploadModal({
         <div className="space-y-3">
           <label
             htmlFor="xml-upload-input"
-            className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50/60 px-3 py-3 transition hover:bg-blue-50"
+            className={`flex items-center gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50/60 px-3 py-3 transition ${
+              isLocked
+                ? "cursor-not-allowed opacity-70"
+                : "cursor-pointer hover:bg-blue-50"
+            }`}
           >
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-700 text-white">
               <svg
@@ -86,7 +94,7 @@ export function UploadModal({
             id="xml-upload-input"
             type="file"
             accept=".xml,text/xml,application/xml"
-            disabled={isSubmitting}
+            disabled={isLocked}
             onChange={(event) => onSelectFile(event.target.files?.[0] ?? null)}
             className="hidden"
           />
@@ -98,6 +106,7 @@ export function UploadModal({
             <p className="mt-1 text-sm text-slate-700">
               {selectedFile ? selectedFile.name : "Nenhum arquivo selecionado."}
             </p>
+            <p className="mt-1 text-xs text-slate-500">Apenas arquivos XML (.xml).</p>
           </div>
 
           {errorMessage ? (
@@ -117,18 +126,18 @@ export function UploadModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={isSubmitting}
-            className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLocked}
+            className="h-10 cursor-pointer rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isSubmitting}
-            className="h-10 rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isConfirmDisabled}
+            className="h-10 cursor-pointer rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? "Enviando..." : "Confirmar Upload"}
+            {isSubmitting ? "Enviando..." : successMessage ? "Concluído" : "Confirmar Upload"}
           </button>
         </div>
       </div>
