@@ -27,7 +27,7 @@ export function LoginForm() {
       }
 
       setAccessToken(data.accessToken);
-      router.push("/files");
+      router.push("/dashboard");
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;

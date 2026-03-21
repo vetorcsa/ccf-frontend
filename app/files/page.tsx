@@ -1,8 +1,9 @@
 "use client";
 
 import axios from "axios";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { getAccessToken } from "../lib/auth";
 import {
@@ -11,8 +12,8 @@ import {
   getFileById,
   listFiles,
   ListFilesResponse,
-  uploadFile as uploadFileRequest,
 } from "../services/files.service";
+import { useXmlUpload } from "../hooks/useXmlUpload";
 import { FileDetailsPanel } from "./components/FileDetailsPanel";
 import { FilesFilters } from "./components/FilesFilters";
 import { FilesList } from "./components/FilesList";
@@ -20,7 +21,6 @@ import { UploadModal } from "./components/UploadModal";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
-const UPLOAD_SUCCESS_CLOSE_DELAY_MS = 700;
 const SIDEBAR_LOGO_PATH = "/ui/logo-ccf.png";
 
 type ActiveFilters = {
@@ -51,7 +51,7 @@ function useIsHydrated(): boolean {
 export default function FilesPage() {
   const router = useRouter();
   const isHydrated = useIsHydrated();
-  const uploadCloseTimeoutRef = useRef<number | null>(null);
+  const [requestedFileId, setRequestedFileId] = useState<string | null>(null);
   const token = isHydrated ? getAccessToken() : null;
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
@@ -71,11 +71,25 @@ export default function FilesPage() {
   const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
   const [pageNotice, setPageNotice] = useState<PageNotice | null>(null);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [uploadSuccess, setUploadSuccess] = useState("");
+  const {
+    isOpen: isUploadModalOpen,
+    selectedFile: selectedUploadFile,
+    isSubmitting: uploadLoading,
+    errorMessage: uploadError,
+    successMessage: uploadSuccess,
+    openModal: openUploadModal,
+    closeModal: closeUploadModal,
+    selectFile: selectUploadFile,
+    confirmUpload,
+  } = useXmlUpload({
+    onSuccess: () => {
+      setListRefreshTrigger((previous) => previous + 1);
+      setPageNotice({
+        type: "success",
+        message: "Arquivo enviado com sucesso. A lista foi atualizada.",
+      });
+    },
+  });
 
   const currentPage = filesResponse?.page ?? page;
   const totalPages = Math.max(1, filesResponse?.totalPages ?? 1);
@@ -88,6 +102,27 @@ export default function FilesPage() {
       router.replace("/");
     }
   }, [isHydrated, token, router]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    setRequestedFileId(params.get("fileId"));
+  }, [isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated || !token || !requestedFileId) {
+      return;
+    }
+
+    setSelectedFileId(requestedFileId);
+
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      setIsMobileDetailsOpen(true);
+    }
+  }, [isHydrated, token, requestedFileId]);
 
   useEffect(() => {
     if (!isHydrated || !token) {
@@ -139,14 +174,6 @@ export default function FilesPage() {
       isActive = false;
     };
   }, [isHydrated, token, page, activeFilters, listRefreshTrigger, router]);
-
-  useEffect(() => {
-    return () => {
-      if (uploadCloseTimeoutRef.current) {
-        window.clearTimeout(uploadCloseTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!pageNotice || pageNotice.type !== "success") {
@@ -280,102 +307,6 @@ export default function FilesPage() {
     setIsMobileDetailsOpen(false);
   }
 
-  function resetUploadState() {
-    setSelectedUploadFile(null);
-    setUploadLoading(false);
-    setUploadError("");
-    setUploadSuccess("");
-  }
-
-  function openUploadModal() {
-    if (uploadCloseTimeoutRef.current) {
-      window.clearTimeout(uploadCloseTimeoutRef.current);
-      uploadCloseTimeoutRef.current = null;
-    }
-
-    resetUploadState();
-    setIsUploadModalOpen(true);
-  }
-
-  function closeUploadModal() {
-    if (uploadLoading || !!uploadSuccess) {
-      return;
-    }
-
-    if (uploadCloseTimeoutRef.current) {
-      window.clearTimeout(uploadCloseTimeoutRef.current);
-      uploadCloseTimeoutRef.current = null;
-    }
-
-    setIsUploadModalOpen(false);
-    resetUploadState();
-  }
-
-  function isXmlFile(file: File): boolean {
-    const name = file.name.toLowerCase();
-    const mime = file.type.toLowerCase();
-    return name.endsWith(".xml") || mime.includes("xml");
-  }
-
-  function extractUploadErrorMessage(error: unknown): string {
-    if (!axios.isAxiosError(error)) {
-      return "Não foi possível concluir o upload do arquivo.";
-    }
-
-    const responseData = error.response?.data;
-    if (
-      typeof responseData === "object" &&
-      responseData !== null &&
-      "message" in responseData
-    ) {
-      const typedData = responseData as { message?: unknown };
-      if (typeof typedData.message === "string") {
-        return typedData.message;
-      }
-    }
-
-    return "Não foi possível concluir o upload do arquivo.";
-  }
-
-  async function handleUploadFile() {
-    if (!selectedUploadFile) {
-      setUploadError("Selecione um arquivo XML para continuar.");
-      setUploadSuccess("");
-      return;
-    }
-
-    if (!isXmlFile(selectedUploadFile)) {
-      setUploadError("Arquivo inválido. Selecione um XML (.xml).");
-      setUploadSuccess("");
-      return;
-    }
-
-    setUploadLoading(true);
-    setUploadError("");
-    setUploadSuccess("");
-    setPageNotice(null);
-
-    try {
-      await uploadFileRequest(selectedUploadFile);
-      setUploadSuccess("Upload concluído com sucesso.");
-      setListRefreshTrigger((previous) => previous + 1);
-      setPageNotice({
-        type: "success",
-        message: "Arquivo enviado com sucesso. A lista foi atualizada.",
-      });
-
-      uploadCloseTimeoutRef.current = window.setTimeout(() => {
-        setIsUploadModalOpen(false);
-        resetUploadState();
-        uploadCloseTimeoutRef.current = null;
-      }, UPLOAD_SUCCESS_CLOSE_DELAY_MS);
-    } catch (error) {
-      setUploadError(extractUploadErrorMessage(error));
-    } finally {
-      setUploadLoading(false);
-    }
-  }
-
   async function handleDownload(fileId: string, fallbackName: string) {
     setPageNotice(null);
     setDownloadingFileId(fileId);
@@ -426,8 +357,14 @@ export default function FilesPage() {
               className="block h-auto w-[136px] max-w-full object-contain"
             />
           </div>
-          <nav className="px-0 py-4">
-            <p className="border-l-2 border-blue-600 bg-white/5 px-6 py-3 text-sm font-medium text-white">
+          <nav className="space-y-1 px-3 py-4">
+            <Link
+              href="/dashboard"
+              className="block rounded-md border-l-2 border-transparent px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+            >
+              Dashboard
+            </Link>
+            <p className="rounded-md border-l-2 border-blue-600 bg-white/5 px-3 py-2.5 text-sm font-medium text-white">
               Arquivos XML
             </p>
           </nav>
@@ -608,13 +545,10 @@ export default function FilesPage() {
           successMessage={uploadSuccess}
           onClose={closeUploadModal}
           onConfirm={() => {
-            void handleUploadFile();
+            setPageNotice(null);
+            void confirmUpload();
           }}
-          onSelectFile={(file) => {
-            setSelectedUploadFile(file);
-            setUploadError("");
-            setUploadSuccess("");
-          }}
+          onSelectFile={selectUploadFile}
         />
       </main>
   );
