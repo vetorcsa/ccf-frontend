@@ -202,12 +202,12 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+    <article className="rounded-xl border border-slate-200 bg-white px-3.5 py-3.5">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-slate-600">{title}</p>
+        <p className="text-xs font-medium text-slate-600">{title}</p>
         <span className="mt-0.5 text-slate-500">{icon}</span>
       </div>
-      <p className="mt-2.5 text-3xl font-semibold leading-none text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl font-semibold leading-none text-slate-900">{value}</p>
       <p className="mt-2 text-xs text-slate-500">{subtitle}</p>
     </article>
   );
@@ -455,8 +455,8 @@ export default function DashboardPage() {
     <>
       <main className="flex h-dvh overflow-hidden bg-[#f2f4f7]">
       <aside className="hidden w-[250px] shrink-0 flex-col border-r border-slate-900/30 bg-[#0e2f4f] text-slate-200 lg:flex">
-        <div className="flex h-[68px] items-center justify-between border-b border-white/10 px-5">
-          <p className="text-2xl font-semibold text-white">CCF</p>
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+          <p className="text-xl font-semibold text-white">CCF</p>
           <button
             type="button"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-300 transition hover:bg-white/10"
@@ -479,7 +479,7 @@ export default function DashboardPage() {
         <nav className="px-2 py-4">
           <Link
             href="/dashboard"
-            className="flex h-10 items-center gap-2.5 rounded-md bg-[#1f476d] px-3.5 text-sm font-medium text-white"
+            className="flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-[#1f476d] px-3.5 text-sm font-medium text-white"
           >
             <DashboardIcon />
             Dashboard
@@ -487,7 +487,7 @@ export default function DashboardPage() {
 
           <Link
             href="/files"
-            className="mt-1.5 flex h-10 items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
+            className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
             <UploadIcon />
             Upload de XML
@@ -495,36 +495,36 @@ export default function DashboardPage() {
 
           <Link
             href="/files"
-            className="mt-1.5 flex h-10 items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
+            className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
             <FilesIcon />
             Arquivos Enviados
           </Link>
 
-          <button
-            type="button"
-            disabled
-            className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70"
-          >
-            <ResultsIcon />
-            Resultados
-          </button>
+            <button
+              type="button"
+              disabled
+              className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70 disabled:cursor-not-allowed"
+            >
+              <ResultsIcon />
+              Resultados
+            </button>
 
-          <button
-            type="button"
-            disabled
-            className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70"
-          >
-            <AdminIcon />
-            Administração
-          </button>
+            <button
+              type="button"
+              disabled
+              className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70 disabled:cursor-not-allowed"
+            >
+              <AdminIcon />
+              Administração
+            </button>
         </nav>
 
         <div className="mt-auto border-t border-white/10 px-5 py-3.5 text-xs text-slate-300/80">CCF v1.0 - MVP</div>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-[68px] items-center justify-between border-b border-slate-200 bg-white px-5">
+        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4">
           <div className="relative mr-3.5 flex-1 max-w-[420px]">
             <svg
               aria-hidden
@@ -547,7 +547,7 @@ export default function DashboardPage() {
                 setUploadsPage(1);
               }}
               placeholder="Buscar upload recente..."
-              className="h-9 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-500"
+              className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-500"
             />
           </div>
 
@@ -572,11 +572,11 @@ export default function DashboardPage() {
             </button>
 
             <div className="flex items-center gap-2.5">
-              <div className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-[#0e2f4f] text-xs font-semibold text-white">
+              <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#0e2f4f] text-[11px] font-semibold text-white">
                 JD
               </div>
               <div className="hidden items-center gap-1 lg:flex">
-                <p className="text-sm font-medium text-slate-800">João da Silva</p>
+                <p className="text-xs font-medium text-slate-800">João da Silva</p>
                 <svg
                   viewBox="0 0 24 24"
                   className="h-4 w-4 text-slate-500"
@@ -593,21 +593,21 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 lg:px-6">
-          <div className="mx-auto w-full max-w-[1400px]">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h1 className="text-2xl font-semibold leading-none text-slate-900">Dashboard</h1>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-5">
+          <div className="mx-auto flex min-h-full w-full max-w-[1400px] flex-col">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="text-xl font-semibold leading-none text-slate-900">Dashboard</h1>
               <button
                 type="button"
                 onClick={openUploadModal}
-                className="inline-flex h-9 shrink-0 items-center justify-center rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800"
+                className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-blue-700 px-3.5 text-xs font-medium text-white transition hover:bg-blue-800"
               >
                 Novo Upload
               </button>
             </div>
-            <p className="mt-2 text-base text-slate-600">{welcomeText}</p>
+            <p className="mt-1.5 text-sm text-slate-600">{welcomeText}</p>
 
-            <section className="mt-4 grid gap-2.5 xl:grid-cols-3">
+            <section className="mt-3.5 grid gap-2 xl:grid-cols-3">
               <StatCard
                 title="Total XML Enviados"
                 value={isLoading ? "..." : formatCompactNumber(stats.totalXml)}
@@ -628,29 +628,29 @@ export default function DashboardPage() {
               />
             </section>
 
-            <section className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <header className="px-4 py-3.5">
-                <h2 className="text-xl font-semibold text-slate-900">Uploads Recentes</h2>
+            <section className="mt-3.5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <header className="px-4 py-3">
+                <h2 className="text-lg font-semibold text-slate-900">Uploads Recentes</h2>
               </header>
 
               {errorMessage ? (
-                <div className="border-t border-slate-200 px-5 py-3.5 text-sm text-rose-700">{errorMessage}</div>
+                <div className="border-t border-slate-200 px-5 py-3 text-xs text-rose-700">{errorMessage}</div>
               ) : (
-                <div>
-                  <div className="overflow-x-auto">
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex-1 overflow-x-auto">
                     <table className="min-w-full">
                       <thead>
                         <tr className="border-b border-slate-200 text-left">
-                          <th className="px-4 py-3 text-xs font-semibold text-slate-500">Arquivo</th>
-                          <th className="px-4 py-3 text-xs font-semibold text-slate-500">Data</th>
-                          <th className="px-4 py-3 text-xs font-semibold text-slate-500">Status</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500">Ações</th>
+                          <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Arquivo</th>
+                          <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Data</th>
+                          <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Status</th>
+                          <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {uploadsLoading ? (
                           <tr>
-                            <td colSpan={4} className="px-4 py-4 text-sm text-slate-500">
+                            <td colSpan={4} className="px-4 py-3 text-xs text-slate-500">
                               Carregando uploads recentes...
                             </td>
                           </tr>
@@ -658,7 +658,7 @@ export default function DashboardPage() {
 
                         {!uploadsLoading && recentUploads.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="px-4 py-4 text-sm text-slate-500">
+                            <td colSpan={4} className="px-4 py-3 text-xs text-slate-500">
                               {activeSearch
                                 ? "Nenhum upload corresponde à busca informada."
                                 : "Nenhum upload recente encontrado."}
@@ -669,16 +669,16 @@ export default function DashboardPage() {
                         {!uploadsLoading
                           ? recentUploads.map((file) => (
                               <tr key={file.id} className="border-b border-slate-200 last:border-b-0">
-                                <td className="px-4 py-3 text-sm font-medium text-slate-900">{file.originalName}</td>
-                              <td className="px-4 py-3 text-sm text-slate-600">{formatAbsoluteDate(file.createdAt)}</td>
-                              <td className="px-4 py-3">
+                                <td className="px-4 py-2.5 text-xs font-medium text-slate-900">{file.originalName}</td>
+                              <td className="px-4 py-2.5 text-xs text-slate-600">{formatAbsoluteDate(file.createdAt)}</td>
+                              <td className="px-4 py-2.5">
                                 <span
                                   className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getDashboardStatusClass(file.status)}`}
                                 >
                                   {getDashboardStatusLabel(file.status)}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-2.5 text-right">
                                 <div className="relative inline-flex" data-dashboard-actions>
                                   <button
                                     type="button"
@@ -688,7 +688,7 @@ export default function DashboardPage() {
                                         previous === file.id ? null : file.id,
                                       );
                                     }}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50"
+                                    className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50"
                                     aria-label={`Abrir ações de ${file.originalName}`}
                                   >
                                     <svg
@@ -707,14 +707,14 @@ export default function DashboardPage() {
                                   </button>
 
                                   {openMenuFileId === file.id ? (
-                                    <div className="absolute right-0 top-9 z-20 w-36 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
+                                    <div className="absolute right-0 top-8 z-20 w-36 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
                                       <button
                                         type="button"
                                         onClick={() => {
                                           setOpenMenuFileId(null);
                                           router.push(`/files?fileId=${file.id}`);
                                         }}
-                                        className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+                                        className="flex h-7 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100"
                                       >
                                         <svg
                                           viewBox="0 0 24 24"
@@ -736,7 +736,7 @@ export default function DashboardPage() {
                                           void handleDownload(file);
                                         }}
                                         disabled={downloadingFileId === file.id}
-                                        className="mt-0.5 flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="mt-0.5 flex h-7 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                                       >
                                         <svg
                                           viewBox="0 0 24 24"
@@ -764,7 +764,7 @@ export default function DashboardPage() {
                     </table>
                   </div>
 
-                  <footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                  <footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                     <p>
                       Mostrando {recentUploads.length > 0 ? (uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE + 1 : 0} a{" "}
                       {(uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE + recentUploads.length} de {uploadsTotal}
@@ -775,26 +775,36 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => setUploadsPage((previous) => Math.max(1, previous - 1))}
                         disabled={uploadsLoading || uploadsPage <= 1}
-                        className="inline-flex h-8 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        className="inline-flex h-7 w-full cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                       >
                         Anterior
                       </button>
 
-                      <div className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-1">
+                      <div className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-1">
                         {uploadsPage > 1 ? (
-                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-slate-200 px-1.5 text-xs font-medium text-slate-500">
+                          <button
+                            type="button"
+                            onClick={() => setUploadsPage((previous) => Math.max(1, previous - 1))}
+                            className="inline-flex h-5 min-w-5 cursor-pointer items-center justify-center rounded border border-slate-200 px-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50"
+                          >
                             {uploadsPage - 1}
-                          </span>
+                          </button>
                         ) : null}
 
-                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-blue-700 bg-blue-700 px-1.5 text-xs font-semibold text-white">
+                        <span className="inline-flex h-5 min-w-5 cursor-default items-center justify-center rounded border border-blue-700 bg-blue-700 px-1.5 text-xs font-semibold text-white">
                           {uploadsPage}
                         </span>
 
                         {uploadsPage < uploadsTotalPages ? (
-                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-slate-200 px-1.5 text-xs font-medium text-slate-500">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setUploadsPage((previous) => Math.min(uploadsTotalPages, previous + 1))
+                            }
+                            className="inline-flex h-5 min-w-5 cursor-pointer items-center justify-center rounded border border-slate-200 px-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50"
+                          >
                             {uploadsPage + 1}
-                          </span>
+                          </button>
                         ) : null}
                       </div>
 
@@ -804,7 +814,7 @@ export default function DashboardPage() {
                           setUploadsPage((previous) => Math.min(uploadsTotalPages, previous + 1))
                         }
                         disabled={uploadsLoading || uploadsPage >= uploadsTotalPages}
-                        className="inline-flex h-8 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        className="inline-flex h-7 w-full cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                       >
                         Próximo
                       </button>
