@@ -237,6 +237,8 @@ export default function DashboardPage() {
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
   const [recentSearch, setRecentSearch] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
+  const [uploadsDateFrom, setUploadsDateFrom] = useState("");
+  const [uploadsDateTo, setUploadsDateTo] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const {
     isOpen: isUploadModalOpen,
@@ -360,7 +362,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setOpenMenuFileId(null);
-  }, [uploadsPage, activeSearch]);
+  }, [uploadsPage, activeSearch, uploadsDateFrom, uploadsDateTo]);
 
   useEffect(() => {
     if (!isHydrated || !token) {
@@ -378,6 +380,8 @@ export default function DashboardPage() {
           page: uploadsPage,
           pageSize: DASHBOARD_UPLOADS_PAGE_SIZE,
           search: activeSearch || undefined,
+          dateFrom: uploadsDateFrom || undefined,
+          dateTo: uploadsDateTo || undefined,
         });
 
         if (!isActive) {
@@ -417,7 +421,16 @@ export default function DashboardPage() {
     return () => {
       isActive = false;
     };
-  }, [activeSearch, isHydrated, router, token, uploadsPage, refreshTrigger]);
+  }, [
+    activeSearch,
+    isHydrated,
+    router,
+    token,
+    uploadsDateFrom,
+    uploadsDateTo,
+    uploadsPage,
+    refreshTrigger,
+  ]);
 
   if (!isHydrated) {
     return (
@@ -525,29 +538,55 @@ export default function DashboardPage() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4">
-          <div className="relative mr-3.5 flex-1 max-w-[420px]">
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
+          <div className="mr-3.5 flex flex-1 items-center gap-2">
+            <div className="relative w-full max-w-[420px]">
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="search"
+                value={recentSearch}
+                onChange={(event) => {
+                  setRecentSearch(event.target.value);
+                  setUploadsPage(1);
+                }}
+                placeholder="Buscar upload recente..."
+                className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-500"
+              />
+            </div>
+
             <input
-              type="search"
-              value={recentSearch}
+              type="date"
+              value={uploadsDateFrom}
               onChange={(event) => {
-                setRecentSearch(event.target.value);
+                setUploadsDateFrom(event.target.value);
                 setUploadsPage(1);
               }}
-              placeholder="Buscar upload recente..."
-              className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-500"
+              aria-label="Data inicial dos uploads recentes"
+              title="Data inicial"
+              className="hidden h-8 w-36 rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 sm:block"
+            />
+
+            <input
+              type="date"
+              value={uploadsDateTo}
+              onChange={(event) => {
+                setUploadsDateTo(event.target.value);
+                setUploadsPage(1);
+              }}
+              aria-label="Data final dos uploads recentes"
+              title="Data final"
+              className="hidden h-8 w-36 rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 sm:block"
             />
           </div>
 
