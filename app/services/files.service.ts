@@ -42,6 +42,97 @@ export type UploadFileResponse = {
   id: string;
 };
 
+export type FileAnalysisFile = {
+  id?: string;
+  originalName?: string;
+  mimeType?: string;
+  size?: number;
+  status?: string;
+  createdAt?: string;
+  uploadedBy?: {
+    id?: string;
+    name?: string;
+    email?: string;
+  };
+};
+
+export type FileAnalysisCompany = {
+  corporateName?: string | null;
+  tradeName?: string | null;
+  cnpj?: string | null;
+  ie?: string | null;
+  uf?: string | null;
+  crt?: string | null;
+};
+
+export type FileAnalysisDocumentItem = {
+  item?: number | null;
+  code?: string | null;
+  description?: string | null;
+  ncm?: string | null;
+  cest?: string | null;
+  cfop?: string | null;
+  quantity?: number | null;
+  unitValue?: number | null;
+  totalValue?: number | null;
+  taxes?: {
+    icmsCstOrCsosn?: string | null;
+    pisCst?: string | null;
+    pisValue?: number | null;
+    cofinsCst?: string | null;
+    cofinsValue?: number | null;
+  } | null;
+};
+
+export type FileAnalysisDocumentTotals = {
+  vProd?: number | null;
+  vDesc?: number | null;
+  vFrete?: number | null;
+  vNF?: number | null;
+  vPIS?: number | null;
+  vCOFINS?: number | null;
+  vICMS?: number | null;
+};
+
+export type FileAnalysisDocument = {
+  number?: string | null;
+  series?: string | null;
+  model?: string | null;
+  issuedAt?: string | null;
+  key?: string | null;
+  protocol?: string | null;
+  operationNature?: string | null;
+  items?: FileAnalysisDocumentItem[];
+  totals?: FileAnalysisDocumentTotals | null;
+};
+
+export type FileAnalysisSummary = {
+  status?: "OK" | "ATTENTION" | string | null;
+  totalItems?: number | null;
+  totalDivergences?: number | null;
+  totalWarnings?: number | null;
+  uniqueCfops?: string[] | null;
+};
+
+export type FileAnalysisDivergence = {
+  code?: string;
+  title?: string;
+  description?: string;
+  severity?: "WARNING" | string;
+  itemNumbers?: number[];
+};
+
+export type FileAnalysisNote = string;
+
+export type FileAnalysisResponse = {
+  file?: FileAnalysisFile;
+  company?: FileAnalysisCompany;
+  document?: FileAnalysisDocument;
+  analysisSummary?: FileAnalysisSummary;
+  divergences?: FileAnalysisDivergence[];
+  fiscalNotes?: FileAnalysisNote[];
+};
+
 function parseFileNameFromContentDisposition(header?: string): string | null {
   if (!header) {
     return null;
@@ -75,6 +166,11 @@ export async function listFiles(params: FilesQueryParams): Promise<ListFilesResp
 
 export async function getFileById(id: string | null): Promise<FileRecord> {
   const { data } = await api.get<FileRecord>(`/files/${id}`);
+  return data;
+}
+
+export async function getFileAnalysisById(id: string): Promise<FileAnalysisResponse> {
+  const { data } = await api.get<FileAnalysisResponse>(`/files/${id}/analysis`);
   return data;
 }
 
