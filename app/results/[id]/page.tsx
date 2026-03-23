@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAccessToken } from "../../lib/auth";
+import { useAuthenticatedUser } from "../../hooks/useAuthenticatedUser";
 import {
   getFileAnalysisById,
   type FileAnalysisDivergence,
@@ -303,6 +304,7 @@ export default function AnalysisResultPage() {
   const params = useParams<{ id: string }>();
   const isHydrated = useIsHydrated();
   const token = isHydrated ? getAccessToken() : null;
+  const { userDisplay } = useAuthenticatedUser(token);
   const [analysisLoading, setAnalysisLoading] = useState(true);
   const [analysisError, setAnalysisError] = useState("");
   const [analysisData, setAnalysisData] = useState<FileAnalysisResponse | null>(null);
@@ -524,10 +526,10 @@ export default function AnalysisResultPage() {
 
             <div className="flex items-center gap-2.5">
               <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#0e2f4f] text-[11px] font-semibold text-white">
-                JD
+                {userDisplay.initials}
               </div>
               <div className="hidden items-center gap-1 lg:flex">
-                <p className="text-xs font-medium text-slate-800">João da Silva</p>
+                <p className="text-xs font-medium text-slate-800">{userDisplay.name}</p>
                 <svg
                   viewBox="0 0 24 24"
                   className="h-4 w-4 text-slate-500"

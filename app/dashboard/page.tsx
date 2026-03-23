@@ -5,19 +5,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "../lib/auth";
-import { useXmlUpload } from "../hooks/useXmlUpload";
-import { downloadFile, FileRecord, listFiles } from "../services/files.service";
-import { UploadModal } from "../files/components/UploadModal";
+import { useBatchUpload } from "../hooks/useBatchUpload";
+import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
+import { BatchRecord, listBatches } from "../services/batches.service";
+import { NewBatchModal } from "./components/NewBatchModal";
 
 const DASHBOARD_STATS_PAGE_SIZE = 20;
 const DASHBOARD_UPLOADS_PAGE_SIZE = 5;
 const SEARCH_DEBOUNCE_MS = 350;
 
 type DashboardStats = {
-  totalXml: number;
-  analysisDone: number;
-  errorsFound: number;
-  analysisDoneRate: number;
+  totalBatches: number;
+  processedBatches: number;
+  failedBatches: number;
+  processedRate: number;
   errorsRate: number;
   uploadsToday: number;
 };
@@ -37,15 +38,19 @@ function normalizeStatus(status: string): string {
 function getDashboardStatusLabel(status: string): string {
   const normalized = normalizeStatus(status);
 
-  if (normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "Erro";
+  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
+    return "Concluído c/ erros";
+  }
+
+  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
+    return "Falhou";
   }
 
   if (normalized.includes("PROCESSING")) {
     return "Processando";
   }
 
-  if (normalized.includes("PROCESSED")) {
+  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
     return "Concluído";
   }
 
@@ -55,7 +60,11 @@ function getDashboardStatusLabel(status: string): string {
 function getDashboardStatusClass(status: string): string {
   const normalized = normalizeStatus(status);
 
-  if (normalized.includes("ERROR") || normalized.includes("FAIL")) {
+  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
+    return "border border-amber-200 bg-amber-100 text-amber-700";
+  }
+
+  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
     return "border border-rose-200 bg-rose-100 text-rose-700";
   }
 
@@ -63,11 +72,11 @@ function getDashboardStatusClass(status: string): string {
     return "border border-slate-300 bg-slate-200 text-slate-700";
   }
 
-  if (normalized.includes("PROCESSED")) {
+  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
     return "border border-emerald-200 bg-emerald-100 text-emerald-700";
   }
 
-  return "border border-amber-200 bg-amber-100 text-amber-700";
+  return "border border-blue-200 bg-blue-100 text-blue-700";
 }
 
 function formatAbsoluteDate(value: string): string {
@@ -85,6 +94,15 @@ function formatAbsoluteDate(value: string): string {
 
 function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(value);
+}
+
+function getBatchDisplayName(batch: BatchRecord): string {
+  const trimmed = batch.name?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+
+  return `Lote ${batch.id.slice(0, 8)}`;
 }
 
 function isTodayDate(value: string): boolean {
@@ -217,40 +235,42 @@ export default function DashboardPage() {
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const token = isHydrated ? getAccessToken() : null;
+  const { userDisplay } = useAuthenticatedUser(token);
 
   const [isLoading, setIsLoading] = useState(true);
   const [uploadsLoading, setUploadsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [stats, setStats] = useState<DashboardStats>({
-    totalXml: 0,
-    analysisDone: 0,
-    errorsFound: 0,
-    analysisDoneRate: 0,
+    totalBatches: 0,
+    processedBatches: 0,
+    failedBatches: 0,
+    processedRate: 0,
     errorsRate: 0,
     uploadsToday: 0,
   });
-  const [recentUploads, setRecentUploads] = useState<FileRecord[]>([]);
+  const [recentBatches, setRecentBatches] = useState<BatchRecord[]>([]);
   const [uploadsPage, setUploadsPage] = useState(1);
   const [uploadsTotal, setUploadsTotal] = useState(0);
   const [uploadsTotalPages, setUploadsTotalPages] = useState(1);
-  const [openMenuFileId, setOpenMenuFileId] = useState<string | null>(null);
-  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
   const [recentSearch, setRecentSearch] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
   const [uploadsDateFrom, setUploadsDateFrom] = useState("");
   const [uploadsDateTo, setUploadsDateTo] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const {
-    isOpen: isUploadModalOpen,
-    selectedFile: selectedUploadFile,
-    isSubmitting: uploadLoading,
-    errorMessage: uploadError,
-    successMessage: uploadSuccess,
-    openModal: openUploadModal,
-    closeModal: closeUploadModal,
-    selectFile: selectUploadFile,
-    confirmUpload,
-  } = useXmlUpload({
+    isOpen: isBatchModalOpen,
+    batchName,
+    selectedFiles,
+    isSubmitting: isBatchSubmitting,
+    errorMessage: batchErrorMessage,
+    successMessage: batchSuccessMessage,
+    openModal: openBatchModal,
+    closeModal: closeBatchModal,
+    updateBatchName,
+    selectFiles,
+    removeFileAt,
+    confirmUpload: confirmBatchUpload,
+  } = useBatchUpload({
     onSuccess: () => {
       setUploadsPage(1);
       setRefreshTrigger((previous) => previous + 1);
@@ -274,7 +294,7 @@ export default function DashboardPage() {
       setIsLoading(true);
 
       try {
-        const response = await listFiles({
+        const response = await listBatches({
           page: 1,
           pageSize: DASHBOARD_STATS_PAGE_SIZE,
         });
@@ -284,25 +304,30 @@ export default function DashboardPage() {
         }
 
         const sampleSize = Math.max(response.data.length, 1);
-        const sampleProcessed = response.data.filter((file) => {
-          const normalized = normalizeStatus(file.status);
-          return normalized.includes("PROCESSED");
+        const sampleProcessed = response.data.filter((batch) => {
+          const normalized = normalizeStatus(batch.status);
+          return normalized.includes("COMPLETED") || normalized.includes("PROCESSED");
         }).length;
-        const sampleErrors = response.data.filter((file) => {
-          const normalized = normalizeStatus(file.status);
-          return normalized.includes("ERROR") || normalized.includes("FAIL");
+        const sampleErrors = response.data.filter((batch) => {
+          const normalized = normalizeStatus(batch.status);
+          return (
+            normalized.includes("FAILED") ||
+            normalized.includes("ERROR") ||
+            normalized.includes("FAIL") ||
+            normalized.includes("COMPLETED_WITH_ERRORS")
+          );
         }).length;
 
-        const estimatedDone = Math.round((sampleProcessed / sampleSize) * response.total);
+        const estimatedProcessed = Math.round((sampleProcessed / sampleSize) * response.total);
         const estimatedErrors = Math.round((sampleErrors / sampleSize) * response.total);
 
         setStats({
-          totalXml: response.total,
-          analysisDone: Math.max(estimatedDone, sampleProcessed),
-          errorsFound: Math.max(estimatedErrors, sampleErrors),
-          analysisDoneRate: Math.min(100, Number(((sampleProcessed / sampleSize) * 100).toFixed(1))),
+          totalBatches: response.total,
+          processedBatches: Math.max(estimatedProcessed, sampleProcessed),
+          failedBatches: Math.max(estimatedErrors, sampleErrors),
+          processedRate: Math.min(100, Number(((sampleProcessed / sampleSize) * 100).toFixed(1))),
           errorsRate: Math.min(100, Number(((sampleErrors / sampleSize) * 100).toFixed(1))),
-          uploadsToday: response.data.filter((file) => isTodayDate(file.createdAt)).length,
+          uploadsToday: response.data.filter((batch) => isTodayDate(batch.createdAt)).length,
         });
       } catch (error) {
         if (!isActive) {
@@ -328,11 +353,11 @@ export default function DashboardPage() {
     return () => {
       isActive = false;
     };
-  }, [isHydrated, token, router]);
+  }, [isHydrated, token, router, refreshTrigger]);
 
   const welcomeText = useMemo(() => {
-    return "Bem-vindo de volta, João. Aqui está o resumo da sua conformidade fiscal.";
-  }, []);
+    return `Bem-vindo de volta, ${userDisplay.name}. Aqui está o resumo da sua conformidade fiscal.`;
+  }, [userDisplay.name]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -343,26 +368,6 @@ export default function DashboardPage() {
       window.clearTimeout(timeoutId);
     };
   }, [recentSearch]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as HTMLElement;
-      const clickedInsideActions = target.closest("[data-dashboard-actions]");
-
-      if (!clickedInsideActions) {
-        setOpenMenuFileId(null);
-      }
-    }
-
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    setOpenMenuFileId(null);
-  }, [uploadsPage, activeSearch, uploadsDateFrom, uploadsDateTo]);
 
   useEffect(() => {
     if (!isHydrated || !token) {
@@ -376,7 +381,7 @@ export default function DashboardPage() {
       setErrorMessage("");
 
       try {
-        const response = await listFiles({
+        const response = await listBatches({
           page: uploadsPage,
           pageSize: DASHBOARD_UPLOADS_PAGE_SIZE,
           search: activeSearch || undefined,
@@ -392,7 +397,7 @@ export default function DashboardPage() {
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
 
-        setRecentUploads(sortedRecent);
+        setRecentBatches(sortedRecent);
         setUploadsTotal(response.total);
         setUploadsTotalPages(Math.max(1, response.totalPages));
       } catch (error) {
@@ -408,7 +413,7 @@ export default function DashboardPage() {
           }
         }
 
-        setErrorMessage("Não foi possível carregar os uploads recentes.");
+        setErrorMessage("Não foi possível carregar os lotes recentes.");
       } finally {
         if (isActive) {
           setUploadsLoading(false);
@@ -442,26 +447,6 @@ export default function DashboardPage() {
 
   if (!token) {
     return null;
-  }
-
-  async function handleDownload(file: FileRecord) {
-    setDownloadingFileId(file.id);
-    setOpenMenuFileId(null);
-
-    try {
-      const { blob, fileName } = await downloadFile(file.id);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = fileName ?? file.originalName;
-      document.body.append(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } finally {
-      setDownloadingFileId(null);
-    }
   }
 
   return (
@@ -560,7 +545,7 @@ export default function DashboardPage() {
                   setRecentSearch(event.target.value);
                   setUploadsPage(1);
                 }}
-                placeholder="Buscar upload recente..."
+                placeholder="Buscar lote recente..."
                 className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 placeholder:text-slate-500"
               />
             </div>
@@ -572,7 +557,7 @@ export default function DashboardPage() {
                 setUploadsDateFrom(event.target.value);
                 setUploadsPage(1);
               }}
-              aria-label="Data inicial dos uploads recentes"
+              aria-label="Data inicial dos lotes recentes"
               title="Data inicial"
               className="hidden h-8 w-36 rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 sm:block"
             />
@@ -584,7 +569,7 @@ export default function DashboardPage() {
                 setUploadsDateTo(event.target.value);
                 setUploadsPage(1);
               }}
-              aria-label="Data final dos uploads recentes"
+              aria-label="Data final dos lotes recentes"
               title="Data final"
               className="hidden h-8 w-36 rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 sm:block"
             />
@@ -612,10 +597,10 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-2.5">
               <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#0e2f4f] text-[11px] font-semibold text-white">
-                JD
+                {userDisplay.initials}
               </div>
               <div className="hidden items-center gap-1 lg:flex">
-                <p className="text-xs font-medium text-slate-800">João da Silva</p>
+                <p className="text-xs font-medium text-slate-800">{userDisplay.name}</p>
                 <svg
                   viewBox="0 0 24 24"
                   className="h-4 w-4 text-slate-500"
@@ -638,30 +623,30 @@ export default function DashboardPage() {
               <h1 className="text-xl font-semibold leading-none text-slate-900">Dashboard</h1>
               <button
                 type="button"
-                onClick={openUploadModal}
+                onClick={openBatchModal}
                 className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-blue-700 px-3.5 text-xs font-medium text-white transition hover:bg-blue-800"
               >
-                Novo Upload
+                Novo Lote
               </button>
             </div>
             <p className="mt-1.5 text-sm text-slate-600">{welcomeText}</p>
 
             <section className="mt-3.5 grid gap-2 xl:grid-cols-3">
               <StatCard
-                title="Total XML Enviados"
-                value={isLoading ? "..." : formatCompactNumber(stats.totalXml)}
+                title="Total Lotes Enviados"
+                value={isLoading ? "..." : formatCompactNumber(stats.totalBatches)}
                 subtitle={isLoading ? "Carregando" : `+${stats.uploadsToday} hoje`}
                 icon={<FilesIcon />}
               />
               <StatCard
-                title="Análises Concluídas"
-                value={isLoading ? "..." : formatCompactNumber(stats.analysisDone)}
-                subtitle={isLoading ? "Carregando" : `${stats.analysisDoneRate.toFixed(1)}%`}
+                title="Lotes Processados"
+                value={isLoading ? "..." : formatCompactNumber(stats.processedBatches)}
+                subtitle={isLoading ? "Carregando" : `${stats.processedRate.toFixed(1)}%`}
                 icon={<ResultsIcon />}
               />
               <StatCard
-                title="Erros Encontrados"
-                value={isLoading ? "..." : formatCompactNumber(stats.errorsFound)}
+                title="Lotes com Erro"
+                value={isLoading ? "..." : formatCompactNumber(stats.failedBatches)}
                 subtitle={isLoading ? "Carregando" : `${stats.errorsRate.toFixed(1)}%`}
                 icon={<AdminIcon />}
               />
@@ -669,7 +654,7 @@ export default function DashboardPage() {
 
             <section className="mt-3.5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
               <header className="px-4 py-3">
-                <h2 className="text-lg font-semibold text-slate-900">Uploads Recentes</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Lotes Recentes</h2>
               </header>
 
               {errorMessage ? (
@@ -680,7 +665,7 @@ export default function DashboardPage() {
                     <table className="min-w-full">
                       <thead>
                         <tr className="border-b border-slate-200 text-left">
-                          <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Arquivo</th>
+                          <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Lote</th>
                           <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Data</th>
                           <th className="px-4 py-2.5 text-xs font-semibold text-slate-500">Status</th>
                           <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500">Ações</th>
@@ -690,111 +675,49 @@ export default function DashboardPage() {
                         {uploadsLoading ? (
                           <tr>
                             <td colSpan={4} className="px-4 py-3 text-xs text-slate-500">
-                              Carregando uploads recentes...
+                              Carregando lotes recentes...
                             </td>
                           </tr>
                         ) : null}
 
-                        {!uploadsLoading && recentUploads.length === 0 ? (
+                        {!uploadsLoading && recentBatches.length === 0 ? (
                           <tr>
                             <td colSpan={4} className="px-4 py-3 text-xs text-slate-500">
                               {activeSearch
-                                ? "Nenhum upload corresponde à busca informada."
-                                : "Nenhum upload recente encontrado."}
+                                ? "Nenhum lote corresponde à busca informada."
+                                : "Nenhum lote recente encontrado."}
                             </td>
                           </tr>
                         ) : null}
 
                         {!uploadsLoading
-                          ? recentUploads.map((file) => (
-                              <tr key={file.id} className="border-b border-slate-200 last:border-b-0">
-                                <td className="px-4 py-2.5 text-xs font-medium text-slate-900">{file.originalName}</td>
-                              <td className="px-4 py-2.5 text-xs text-slate-600">{formatAbsoluteDate(file.createdAt)}</td>
+                          ? recentBatches.map((batch) => (
+                              <tr key={batch.id} className="border-b border-slate-200 last:border-b-0">
+                                <td className="px-4 py-2.5 text-xs font-medium text-slate-900">
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(`/batches/${batch.id}`)}
+                                    className="cursor-pointer text-left transition hover:text-blue-700 hover:underline"
+                                  >
+                                    {getBatchDisplayName(batch)}
+                                  </button>
+                                </td>
+                              <td className="px-4 py-2.5 text-xs text-slate-600">{formatAbsoluteDate(batch.createdAt)}</td>
                               <td className="px-4 py-2.5">
                                 <span
-                                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getDashboardStatusClass(file.status)}`}
+                                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${getDashboardStatusClass(batch.status)}`}
                                 >
-                                  {getDashboardStatusLabel(file.status)}
+                                  {getDashboardStatusLabel(batch.status)}
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-right">
-                                <div className="relative inline-flex" data-dashboard-actions>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setOpenMenuFileId((previous) =>
-                                        previous === file.id ? null : file.id,
-                                      );
-                                    }}
-                                    className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50"
-                                    aria-label={`Abrir ações de ${file.originalName}`}
-                                  >
-                                    <svg
-                                      viewBox="0 0 24 24"
-                                      className="h-4 w-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <circle cx="5" cy="12" r="1"></circle>
-                                      <circle cx="12" cy="12" r="1"></circle>
-                                      <circle cx="19" cy="12" r="1"></circle>
-                                    </svg>
-                                  </button>
-
-                                  {openMenuFileId === file.id ? (
-                                    <div className="absolute right-0 top-8 z-20 w-36 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenMenuFileId(null);
-                                          router.push(`/results/${file.id}`);
-                                        }}
-                                        className="flex h-7 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100"
-                                      >
-                                        <svg
-                                          viewBox="0 0 24 24"
-                                          className="h-3.5 w-3.5 text-slate-500"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                        >
-                                          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-                                          <circle cx="12" cy="12" r="3" />
-                                        </svg>
-                                        Ver análise
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          void handleDownload(file);
-                                        }}
-                                        disabled={downloadingFileId === file.id}
-                                        className="mt-0.5 flex h-7 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        <svg
-                                          viewBox="0 0 24 24"
-                                          className="h-3.5 w-3.5 text-slate-500"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                        >
-                                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                          <polyline points="7 10 12 15 17 10" />
-                                          <line x1="12" y1="15" x2="12" y2="3" />
-                                        </svg>
-                                        {downloadingFileId === file.id ? "Baixando..." : "Download"}
-                                      </button>
-                                    </div>
-                                  ) : null}
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => router.push(`/batches/${batch.id}`)}
+                                  className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  Ver lote
+                                </button>
                               </td>
                             </tr>
                           ))
@@ -805,8 +728,8 @@ export default function DashboardPage() {
 
                   <footer className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                     <p>
-                      Mostrando {recentUploads.length > 0 ? (uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE + 1 : 0} a{" "}
-                      {(uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE + recentUploads.length} de {uploadsTotal}
+                      Mostrando {recentBatches.length > 0 ? (uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE + 1 : 0} a{" "}
+                      {(uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE + recentBatches.length} de {uploadsTotal}
                     </p>
 
                     <div className="grid w-full grid-cols-[1fr_auto_1fr] gap-2 sm:flex sm:w-auto sm:gap-1">
@@ -867,17 +790,20 @@ export default function DashboardPage() {
       </div>
       </main>
 
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        selectedFile={selectedUploadFile}
-        isSubmitting={uploadLoading}
-        errorMessage={uploadError}
-        successMessage={uploadSuccess}
-        onClose={closeUploadModal}
+      <NewBatchModal
+        isOpen={isBatchModalOpen}
+        batchName={batchName}
+        selectedFiles={selectedFiles}
+        isSubmitting={isBatchSubmitting}
+        errorMessage={batchErrorMessage}
+        successMessage={batchSuccessMessage}
+        onClose={closeBatchModal}
         onConfirm={() => {
-          void confirmUpload();
+          void confirmBatchUpload();
         }}
-        onSelectFile={selectUploadFile}
+        onChangeBatchName={updateBatchName}
+        onSelectFiles={selectFiles}
+        onRemoveFile={removeFileAt}
       />
     </>
   );
