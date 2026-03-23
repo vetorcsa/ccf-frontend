@@ -696,7 +696,7 @@ export default function DashboardPage() {
                                 <td className="px-4 py-2.5 text-xs font-medium text-slate-900">
                                   <button
                                     type="button"
-                                    onClick={() => router.push(`/batches/${batch.id}`)}
+                                    onClick={() => router.push(`/batches/${batch.id}/documents`)}
                                     className="cursor-pointer text-left transition hover:text-blue-700 hover:underline"
                                   >
                                     {getBatchDisplayName(batch)}
@@ -711,13 +711,22 @@ export default function DashboardPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => router.push(`/batches/${batch.id}`)}
-                                  className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                                >
-                                  Ver lote
-                                </button>
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(`/batches/${batch.id}/analysis`)}
+                                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                                  >
+                                    Ver Análise
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(`/batches/${batch.id}/documents`)}
+                                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md bg-blue-700 px-2.5 text-xs font-medium text-white transition hover:bg-blue-800"
+                                  >
+                                    Ver Documentos
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
