@@ -196,6 +196,10 @@ export async function getBatchAnalysis(batchId: string): Promise<BatchAnalysisRe
   return data;
 }
 
+export async function deleteBatch(batchId: string): Promise<void> {
+  await api.delete(`/batches/${batchId}`);
+}
+
 export async function uploadBatch(name: string, files: File[]): Promise<UploadBatchResponse> {
   const formData = new FormData();
   formData.append("name", name);

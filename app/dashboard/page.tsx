@@ -8,7 +8,8 @@ import { getAccessToken } from "../lib/auth";
 import { UserMenu } from "../components/UserMenu";
 import { useBatchUpload } from "../hooks/useBatchUpload";
 import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
-import { BatchRecord, listBatches } from "../services/batches.service";
+import { BatchRecord, deleteBatch, listBatches } from "../services/batches.service";
+import { DeleteBatchModal } from "./components/DeleteBatchModal";
 import { NewBatchModal } from "./components/NewBatchModal";
 
 const DASHBOARD_STATS_PAGE_SIZE = 20;
@@ -260,6 +261,9 @@ export default function DashboardPage() {
   const [uploadsDateFrom, setUploadsDateFrom] = useState("");
   const [uploadsDateTo, setUploadsDateTo] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [batchToDelete, setBatchToDelete] = useState<BatchRecord | null>(null);
+  const [deleteBatchError, setDeleteBatchError] = useState("");
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
   const {
     isOpen: isBatchModalOpen,
     batchName,
@@ -280,6 +284,33 @@ export default function DashboardPage() {
     },
   });
   const shouldOpenNewBatchModal = searchParams.get("newBatch") === "1";
+
+  function extractDeleteBatchErrorMessage(error: unknown): string {
+    if (!axios.isAxiosError(error)) {
+      return "Não foi possível excluir o lote.";
+    }
+
+    const responseData = error.response?.data;
+    if (
+      typeof responseData === "object" &&
+      responseData !== null &&
+      "message" in responseData
+    ) {
+      const typedData = responseData as { message?: unknown };
+      if (typeof typedData.message === "string" && typedData.message.trim()) {
+        return typedData.message;
+      }
+
+      if (Array.isArray(typedData.message)) {
+        const firstMessage = typedData.message.find((message) => typeof message === "string");
+        if (typeof firstMessage === "string" && firstMessage.trim()) {
+          return firstMessage;
+        }
+      }
+    }
+
+    return "Não foi possível excluir o lote.";
+  }
 
   useEffect(() => {
     if (isHydrated && !token) {
@@ -470,6 +501,40 @@ export default function DashboardPage() {
 
   if (!token) {
     return null;
+  }
+
+  function openDeleteBatchModal(batch: BatchRecord) {
+    setBatchToDelete(batch);
+    setDeleteBatchError("");
+  }
+
+  function closeDeleteBatchModal() {
+    if (isDeletingBatch) {
+      return;
+    }
+
+    setBatchToDelete(null);
+    setDeleteBatchError("");
+  }
+
+  async function handleConfirmDeleteBatch() {
+    if (!batchToDelete) {
+      return;
+    }
+
+    setDeleteBatchError("");
+    setIsDeletingBatch(true);
+
+    try {
+      await deleteBatch(batchToDelete.id);
+      setBatchToDelete(null);
+      setUploadsPage(1);
+      setRefreshTrigger((previous) => previous + 1);
+    } catch (error) {
+      setDeleteBatchError(extractDeleteBatchErrorMessage(error));
+    } finally {
+      setIsDeletingBatch(false);
+    }
   }
 
   return (
@@ -716,6 +781,13 @@ export default function DashboardPage() {
                                   >
                                     Ver Documentos
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteBatchModal(batch)}
+                                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-2.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
+                                  >
+                                    Excluir Lote
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -803,6 +875,17 @@ export default function DashboardPage() {
         onChangeBatchName={updateBatchName}
         onSelectFiles={selectFiles}
         onRemoveFile={removeFileAt}
+      />
+
+      <DeleteBatchModal
+        isOpen={!!batchToDelete}
+        batchName={batchToDelete ? getBatchDisplayName(batchToDelete) : ""}
+        isSubmitting={isDeletingBatch}
+        errorMessage={deleteBatchError}
+        onClose={closeDeleteBatchModal}
+        onConfirm={() => {
+          void handleConfirmDeleteBatch();
+        }}
       />
     </>
   );
