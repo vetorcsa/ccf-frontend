@@ -71,6 +71,10 @@ export function setAccessToken(token: string): void {
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
 }
 
+export function clearAccessToken(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
+
 export function getUserDisplayFromToken(token: string | null): AuthUserDisplay {
   if (!token) {
     return FALLBACK_USER_DISPLAY;

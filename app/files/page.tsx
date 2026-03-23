@@ -364,9 +364,18 @@ export default function FilesPage() {
             >
               Dashboard
             </Link>
-            <p className="rounded-md border-l-2 border-blue-600 bg-white/5 px-3 py-2.5 text-sm font-medium text-white">
-              Arquivos XML
-            </p>
+            <Link
+              href="/dashboard?newBatch=1"
+              className="block rounded-md border-l-2 border-transparent px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+            >
+              Novo Lote
+            </Link>
+            <Link
+              href="/dashboard#lotes-recentes"
+              className="block rounded-md border-l-2 border-transparent px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
+            >
+              Lotes
+            </Link>
           </nav>
         </aside>
 

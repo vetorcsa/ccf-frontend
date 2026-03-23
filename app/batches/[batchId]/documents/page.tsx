@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAccessToken } from "../../../lib/auth";
+import { UserMenu } from "../../../components/UserMenu";
 import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import { getFileStatusBadgeClass, getFileStatusLabel } from "../../../files/utils/fileStatus";
 import { type BatchSummary, listBatchFiles } from "../../../services/batches.service";
@@ -170,42 +171,6 @@ function FilesIcon() {
       <path d="M14 2v6h6" />
       <path d="M8 13h8" />
       <path d="M8 17h6" />
-    </svg>
-  );
-}
-
-function ResultsIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 20V10" />
-      <path d="M10 20V4" />
-      <path d="M16 20v-6" />
-      <path d="M22 20H2" />
-    </svg>
-  );
-}
-
-function AdminIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.6 1.6 0 0 0 .32 1.76l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.76-.32 1.6 1.6 0 0 0-1 1.46V21a2 2 0 0 1-4 0v-.09a1.6 1.6 0 0 0-1-1.46 1.6 1.6 0 0 0-1.76.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.76 1.6 1.6 0 0 0-1.46-1H3a2 2 0 0 1 0-4h.09a1.6 1.6 0 0 0 1.46-1 1.6 1.6 0 0 0-.32-1.76l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.76.32h.01a1.6 1.6 0 0 0 1-1.46V3a2 2 0 0 1 4 0v.09a1.6 1.6 0 0 0 1 1.46h.01a1.6 1.6 0 0 0 1.76-.32l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.76v.01a1.6 1.6 0 0 0 1.46 1H21a2 2 0 0 1 0 4h-.09a1.6 1.6 0 0 0-1.46 1z" />
     </svg>
   );
 }
@@ -424,38 +389,20 @@ export default function BatchFilesPage() {
           </Link>
 
           <Link
-            href="/files"
+            href="/dashboard?newBatch=1"
             className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
             <UploadIcon />
-            Upload de XML
+            Novo Lote
           </Link>
 
           <Link
-            href="/files"
+            href="/dashboard#lotes-recentes"
             className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-[#1f476d] px-3.5 text-sm font-medium text-white"
           >
             <FilesIcon />
-            Arquivos Enviados
+            Lotes
           </Link>
-
-          <button
-            type="button"
-            disabled
-            className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70 disabled:cursor-not-allowed"
-          >
-            <ResultsIcon />
-            Resultados
-          </button>
-
-          <button
-            type="button"
-            disabled
-            className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70 disabled:cursor-not-allowed"
-          >
-            <AdminIcon />
-            Administração
-          </button>
         </nav>
 
         <div className="mt-auto border-t border-white/10 px-5 py-3.5 text-xs text-slate-300/80">CCF v1.0 - MVP</div>
@@ -483,25 +430,7 @@ export default function BatchFilesPage() {
               </svg>
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#0e2f4f] text-[11px] font-semibold text-white">
-                {userDisplay.initials}
-              </div>
-              <div className="hidden items-center gap-1 lg:flex">
-                <p className="text-xs font-medium text-slate-800">{userDisplay.name}</p>
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 text-slate-500"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </div>
-            </div>
+            <UserMenu name={userDisplay.name} initials={userDisplay.initials} />
           </div>
         </header>
 

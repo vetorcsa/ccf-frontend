@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getAccessToken } from "../../../lib/auth";
+import { UserMenu } from "../../../components/UserMenu";
 import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import {
   getBatchAnalysis,
@@ -173,7 +174,7 @@ function FilesIcon() {
   );
 }
 
-function ResultsIcon() {
+function PlusIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -184,10 +185,8 @@ function ResultsIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M4 20V10" />
-      <path d="M10 20V4" />
-      <path d="M16 20v-6" />
-      <path d="M22 20H2" />
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
     </svg>
   );
 }
@@ -666,17 +665,20 @@ export default function BatchAnalysisPage() {
             Dashboard
           </Link>
 
-          <div className="mt-1.5 flex h-10 items-center gap-2.5 rounded-md bg-[#1f476d] px-3.5 text-sm font-medium text-white">
-            <ResultsIcon />
-            Análise do Lote
-          </div>
-
           <Link
-            href={batchId ? `/batches/${batchId}/documents` : "/dashboard"}
+            href="/dashboard?newBatch=1"
             className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
+            <PlusIcon />
+            Novo Lote
+          </Link>
+
+          <Link
+            href="/dashboard#lotes-recentes"
+            className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-[#1f476d] px-3.5 text-sm font-medium text-white"
+          >
             <FilesIcon />
-            Documentos do Lote
+            Lotes
           </Link>
         </nav>
 
@@ -705,25 +707,7 @@ export default function BatchAnalysisPage() {
               </svg>
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#0e2f4f] text-[11px] font-semibold text-white">
-                {userDisplay.initials}
-              </div>
-              <div className="hidden items-center gap-1 lg:flex">
-                <p className="text-xs font-medium text-slate-800">{userDisplay.name}</p>
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 text-slate-500"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </div>
-            </div>
+            <UserMenu name={userDisplay.name} initials={userDisplay.initials} />
           </div>
         </header>
 

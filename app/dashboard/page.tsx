@@ -2,9 +2,10 @@
 
 import axios from "axios";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getAccessToken } from "../lib/auth";
+import { UserMenu } from "../components/UserMenu";
 import { useBatchUpload } from "../hooks/useBatchUpload";
 import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
 import { BatchRecord, listBatches } from "../services/batches.service";
@@ -233,6 +234,8 @@ function StatCard({
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const hasHandledNewBatchParamRef = useRef(false);
   const isHydrated = useIsHydrated();
   const token = isHydrated ? getAccessToken() : null;
   const { userDisplay } = useAuthenticatedUser(token);
@@ -276,12 +279,32 @@ export default function DashboardPage() {
       setRefreshTrigger((previous) => previous + 1);
     },
   });
+  const shouldOpenNewBatchModal = searchParams.get("newBatch") === "1";
 
   useEffect(() => {
     if (isHydrated && !token) {
       router.replace("/");
     }
   }, [isHydrated, token, router, refreshTrigger]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    if (!shouldOpenNewBatchModal) {
+      hasHandledNewBatchParamRef.current = false;
+      return;
+    }
+
+    if (hasHandledNewBatchParamRef.current) {
+      return;
+    }
+
+    hasHandledNewBatchParamRef.current = true;
+    openBatchModal();
+    router.replace("/dashboard", { scroll: false });
+  }, [isHydrated, openBatchModal, router, shouldOpenNewBatchModal]);
 
   useEffect(() => {
     if (!isHydrated || !token) {
@@ -484,38 +507,20 @@ export default function DashboardPage() {
           </Link>
 
           <Link
-            href="/files"
+            href="/dashboard?newBatch=1"
             className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
             <UploadIcon />
-            Upload de XML
+            Novo Lote
           </Link>
 
           <Link
-            href="/files"
+            href="/dashboard#lotes-recentes"
             className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
             <FilesIcon />
-            Arquivos Enviados
+            Lotes
           </Link>
-
-            <button
-              type="button"
-              disabled
-              className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70 disabled:cursor-not-allowed"
-            >
-              <ResultsIcon />
-              Resultados
-            </button>
-
-            <button
-              type="button"
-              disabled
-              className="mt-1.5 flex h-10 w-full items-center gap-2.5 rounded-md px-3.5 text-left text-sm font-medium text-slate-200/70 disabled:cursor-not-allowed"
-            >
-              <AdminIcon />
-              Administração
-            </button>
         </nav>
 
         <div className="mt-auto border-t border-white/10 px-5 py-3.5 text-xs text-slate-300/80">CCF v1.0 - MVP</div>
@@ -595,25 +600,7 @@ export default function DashboardPage() {
               </svg>
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#0e2f4f] text-[11px] font-semibold text-white">
-                {userDisplay.initials}
-              </div>
-              <div className="hidden items-center gap-1 lg:flex">
-                <p className="text-xs font-medium text-slate-800">{userDisplay.name}</p>
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 text-slate-500"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </div>
-            </div>
+            <UserMenu name={userDisplay.name} initials={userDisplay.initials} />
           </div>
         </header>
 
@@ -652,7 +639,10 @@ export default function DashboardPage() {
               />
             </section>
 
-            <section className="mt-3.5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <section
+              id="lotes-recentes"
+              className="mt-3.5 flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white"
+            >
               <header className="px-4 py-3">
                 <h2 className="text-lg font-semibold text-slate-900">Lotes Recentes</h2>
               </header>
