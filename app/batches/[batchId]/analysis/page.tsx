@@ -341,6 +341,29 @@ function getDivergenceSeverityClass(severity: string): string {
   return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
+function getDivergenceSeverityLabel(severity: string): string {
+  const normalized = severity.trim().toUpperCase();
+
+  if (normalized.includes("CRIT")) {
+    return "Crítico";
+  }
+
+  if (normalized.includes("ERROR")) {
+    return "Erro";
+  }
+
+  if (normalized.includes("WARN") || normalized.includes("ATTEN")) {
+    return "Atenção";
+  }
+
+  if (normalized.includes("INFO")) {
+    return "Informativo";
+  }
+
+  const fallback = severity.trim();
+  return fallback || "Atenção";
+}
+
 function DocumentsTable({
   variant,
   title,
@@ -810,7 +833,8 @@ export default function BatchAnalysisPage() {
                       </tr>
                     ) : (
                       divergences.map((divergence, index) => {
-                        const severity = divergence.severity?.trim() || "Atenção";
+                        const severity = divergence.severity?.trim() || "WARNING";
+                        const severityLabel = getDivergenceSeverityLabel(severity);
                         return (
                           <tr
                             key={`${divergence.code ?? "DIV"}-${index}`}
@@ -829,7 +853,7 @@ export default function BatchAnalysisPage() {
                               <span
                                 className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${getDivergenceSeverityClass(severity)}`}
                               >
-                                {severity}
+                                {severityLabel}
                               </span>
                             </td>
                           </tr>
