@@ -1,10 +1,10 @@
 "use client";
 
 import axios from "axios";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getAccessToken } from "../lib/auth";
+import { AppSidebar } from "../components/AppSidebar";
 import { UserMenu } from "../components/UserMenu";
 import { useBatchUpload } from "../hooks/useBatchUpload";
 import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
@@ -115,43 +115,6 @@ function isTodayDate(value: string): boolean {
     now.getFullYear() === target.getFullYear() &&
     now.getMonth() === target.getMonth() &&
     now.getDate() === target.getDate()
-  );
-}
-
-function DashboardIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="7" height="7" rx="1.2" />
-      <rect x="14" y="3" width="7" height="7" rx="1.2" />
-      <rect x="3" y="14" width="7" height="7" rx="1.2" />
-      <rect x="14" y="14" width="7" height="7" rx="1.2" />
-    </svg>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 16V4" />
-      <path d="M8 8l4-4 4 4" />
-      <path d="M4 20h16" />
-    </svg>
   );
 }
 
@@ -540,56 +503,7 @@ export default function DashboardPage() {
   return (
     <>
       <main className="flex h-dvh overflow-hidden bg-[#f2f4f7]">
-      <aside className="hidden w-[250px] shrink-0 flex-col border-r border-slate-900/30 bg-[#0e2f4f] text-slate-200 lg:flex">
-        <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
-          <p className="text-xl font-semibold text-white">CCF</p>
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-300 transition hover:bg-white/10"
-            aria-label="Recolher menu"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        </div>
-
-        <nav className="px-2 py-4">
-          <Link
-            href="/dashboard"
-            className="flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-[#1f476d] px-3.5 text-sm font-medium text-white"
-          >
-            <DashboardIcon />
-            Dashboard
-          </Link>
-
-          <Link
-            href="/dashboard?newBatch=1"
-            className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
-          >
-            <UploadIcon />
-            Novo Lote
-          </Link>
-
-          <Link
-            href="/dashboard#lotes-recentes"
-            className="mt-1.5 flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
-          >
-            <FilesIcon />
-            Lotes
-          </Link>
-        </nav>
-
-        <div className="mt-auto border-t border-white/10 px-5 py-3.5 text-xs text-slate-300/80">CCF v1.0 - MVP</div>
-      </aside>
+      <AppSidebar activeItem="dashboard" />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4">
