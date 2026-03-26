@@ -141,7 +141,7 @@ export function AppSidebar({ activeItem, contextualItems = [] }: AppSidebarProps
       </nav>
 
       <div className="mt-auto border-t border-white/10 px-5 py-3.5 text-xs text-slate-300/80">
-        CCF v1.0 - MVP
+        CCF v1.0
       </div>
     </aside>
   );

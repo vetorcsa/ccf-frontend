@@ -698,9 +698,25 @@ export default function DashboardPage() {
                                   <button
                                     type="button"
                                     onClick={() => openDeleteBatchModal(batch)}
-                                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-2.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100"
+                                    aria-label="Excluir lote"
+                                    className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-rose-200 bg-white text-rose-700 transition hover:bg-rose-50"
                                   >
-                                    Excluir Lote
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      className="h-3.5 w-3.5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.9"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      aria-hidden
+                                    >
+                                      <path d="M3 6h18" />
+                                      <path d="M8 6V4h8v2" />
+                                      <path d="M19 6l-1 14H6L5 6" />
+                                      <path d="M10 11v6" />
+                                      <path d="M14 11v6" />
+                                    </svg>
                                   </button>
                                 </div>
                               </td>
