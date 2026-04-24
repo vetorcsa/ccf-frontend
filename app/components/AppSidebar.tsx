@@ -98,10 +98,10 @@ function SidebarLink({ item, isActive }: { item: SidebarItem; isActive: boolean 
   return (
     <Link
       href={item.href}
-      className={`flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3.5 text-sm font-medium transition ${
+      className={`flex h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
         isActive
-          ? "bg-[#1f476d] text-white"
-          : "text-slate-200 hover:bg-white/10 hover:text-white"
+          ? "border-r-[3px] border-indigo-600 bg-indigo-50 text-indigo-600"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
       }`}
     >
       {item.icon}
@@ -112,27 +112,28 @@ function SidebarLink({ item, isActive }: { item: SidebarItem; isActive: boolean 
 
 export function AppSidebar({ activeItem, contextualItems = [] }: AppSidebarProps) {
   return (
-    <aside className="hidden w-[250px] shrink-0 flex-col border-r border-slate-900/30 bg-[#0e2f4f] text-slate-200 lg:flex">
-      <div className="flex h-16 items-center justify-center border-b border-white/10 px-5">
+    <aside className="relative z-20 hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white shadow-sm lg:flex">
+      <div className="flex h-16 items-center justify-center border-b border-slate-200 px-6">
         <Image
           src="/ui/logo-ccf.png"
           alt="CCF"
           width={2816}
           height={1536}
           priority
-          className="block h-auto w-[112px] max-w-full object-contain"
+          className="block h-auto w-[128px] max-w-full object-contain"
         />
       </div>
 
-      <nav className="px-2 py-4">
-        <div className="space-y-1.5">
+      <nav className="px-4 py-4">
+        <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Menu Principal</p>
+        <div className="space-y-0.5">
           {GLOBAL_ITEMS.map((item) => (
             <SidebarLink key={item.key} item={item} isActive={item.key === activeItem} />
           ))}
         </div>
 
         {contextualItems.length > 0 ? (
-          <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
+          <div className="mt-3 space-y-0.5 border-t border-slate-200 pt-3">
             {contextualItems.map((item) => (
               <SidebarLink key={item.key} item={item} isActive={item.key === activeItem} />
             ))}
@@ -140,7 +141,7 @@ export function AppSidebar({ activeItem, contextualItems = [] }: AppSidebarProps
         ) : null}
       </nav>
 
-      <div className="mt-auto border-t border-white/10 px-5 py-3.5 text-xs text-slate-300/80">
+      <div className="mt-auto border-t border-slate-200 px-6 py-4 text-xs text-slate-500">
         CCF v1.0
       </div>
     </aside>
