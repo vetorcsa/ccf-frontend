@@ -14,6 +14,12 @@ import { AppSidebar } from "../../../components/AppSidebar";
 import { UserMenu } from "../../../components/UserMenu";
 import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import { getFileStatusBadgeClass, getFileStatusLabel } from "../../../files/utils/fileStatus";
+import {
+  buildDemoXmlBlob,
+  DEMO_BATCH_SUMMARY,
+  filterDemoBatchFiles,
+  isDemoBatchId,
+} from "../../../lib/demoBatchAnalysis";
 import { type BatchSummary, listBatchFiles } from "../../../services/batches.service";
 import { downloadFile, type FileRecord } from "../../../services/files.service";
 
@@ -208,6 +214,24 @@ export default function BatchFilesPage() {
       setIsLoading(true);
       setErrorMessage("");
 
+      if (isDemoBatchId(batchId)) {
+        const filteredFiles = filterDemoBatchFiles({
+          search: activeSearch || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+        });
+        const pageStart = (page - 1) * PAGE_SIZE;
+        const pageEnd = pageStart + PAGE_SIZE;
+
+        setBatch(DEMO_BATCH_SUMMARY);
+        setFiles(filteredFiles.slice(pageStart, pageEnd));
+        setTotal(filteredFiles.length);
+        setTotalPages(Math.max(1, Math.ceil(filteredFiles.length / PAGE_SIZE)));
+        setPageSize(PAGE_SIZE);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const response = await listBatchFiles(batchId, {
           page,
@@ -284,6 +308,19 @@ export default function BatchFilesPage() {
     setOpenMenuFileId(null);
 
     try {
+      if (isDemoBatchId(batchId)) {
+        const url = URL.createObjectURL(buildDemoXmlBlob(file.originalName));
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = file.originalName;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
       const { blob, fileName } = await downloadFile(file.id);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -521,6 +558,10 @@ export default function BatchFilesPage() {
                                           type="button"
                                           onClick={() => {
                                             setOpenMenuFileId(null);
+                                            if (isDemoBatchId(batchId)) {
+                                              router.push(`/batches/${batchId}/analysis`);
+                                              return;
+                                            }
                                             router.push(`/results/${file.id}`);
                                           }}
                                           className="flex h-7 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-100"

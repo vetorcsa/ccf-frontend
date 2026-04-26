@@ -9,6 +9,12 @@ import { AppSidebar } from "../components/AppSidebar";
 import { UserMenu } from "../components/UserMenu";
 import { useBatchUpload } from "../hooks/useBatchUpload";
 import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
+import {
+  DEMO_BATCH_ID,
+  isDemoBatchId,
+  mergeDemoBatchIntoFirstPage,
+  shouldShowDemoBatch,
+} from "../lib/demoBatchAnalysis";
 import { BatchRecord, deleteBatch, listBatches } from "../services/batches.service";
 import { DeleteBatchModal } from "./components/DeleteBatchModal";
 import { NewBatchModal } from "./components/NewBatchModal";
@@ -447,12 +453,19 @@ function DashboardPageContent() {
           return;
         }
 
-        const sampleSize = Math.max(response.data.length, 1);
-        const sampleProcessed = response.data.filter((batch) => {
+        const statsBatches = mergeDemoBatchIntoFirstPage({
+          batches: response.data,
+          page: 1,
+          pageSize: DASHBOARD_STATS_PAGE_SIZE,
+        });
+        const hasDemoBatchFromApi = response.data.some((batch) => batch.id === DEMO_BATCH_ID);
+        const adjustedTotal = response.total + (hasDemoBatchFromApi ? 0 : 1);
+        const sampleSize = Math.max(statsBatches.length, 1);
+        const sampleProcessed = statsBatches.filter((batch) => {
           const normalized = normalizeStatus(batch.status);
           return normalized.includes("COMPLETED") || normalized.includes("PROCESSED");
         }).length;
-        const sampleErrors = response.data.filter((batch) => {
+        const sampleErrors = statsBatches.filter((batch) => {
           const normalized = normalizeStatus(batch.status);
           return (
             normalized.includes("FAILED") ||
@@ -462,16 +475,16 @@ function DashboardPageContent() {
           );
         }).length;
 
-        const estimatedProcessed = Math.round((sampleProcessed / sampleSize) * response.total);
-        const estimatedErrors = Math.round((sampleErrors / sampleSize) * response.total);
+        const estimatedProcessed = Math.round((sampleProcessed / sampleSize) * adjustedTotal);
+        const estimatedErrors = Math.round((sampleErrors / sampleSize) * adjustedTotal);
 
         setStats({
-          totalBatches: response.total,
+          totalBatches: adjustedTotal,
           processedBatches: Math.max(estimatedProcessed, sampleProcessed),
           failedBatches: Math.max(estimatedErrors, sampleErrors),
           processedRate: Math.min(100, Number(((sampleProcessed / sampleSize) * 100).toFixed(1))),
           errorsRate: Math.min(100, Number(((sampleErrors / sampleSize) * 100).toFixed(1))),
-          uploadsToday: response.data.filter((batch) => isTodayDate(batch.createdAt)).length,
+          uploadsToday: statsBatches.filter((batch) => isTodayDate(batch.createdAt)).length,
         });
       } catch (error) {
         if (!isActive) {
@@ -537,13 +550,28 @@ function DashboardPageContent() {
           return;
         }
 
-        const sortedRecent = [...response.data].sort(
+        const sortedRealBatches = [...response.data].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
+        const sortedRecent = mergeDemoBatchIntoFirstPage({
+          batches: sortedRealBatches,
+          page: uploadsPage,
+          pageSize: DASHBOARD_UPLOADS_PAGE_SIZE,
+          search: activeSearch || undefined,
+          dateFrom: uploadsDateFrom || undefined,
+          dateTo: uploadsDateTo || undefined,
+        });
+        const hasDemoBatchFromApi = response.data.some((batch) => batch.id === DEMO_BATCH_ID);
+        const demoMatchesFilters = shouldShowDemoBatch({
+          search: activeSearch || undefined,
+          dateFrom: uploadsDateFrom || undefined,
+          dateTo: uploadsDateTo || undefined,
+        });
+        const adjustedTotal = response.total + (demoMatchesFilters && !hasDemoBatchFromApi ? 1 : 0);
 
         setRecentBatches(sortedRecent);
-        setUploadsTotal(response.total);
-        setUploadsTotalPages(Math.max(1, response.totalPages));
+        setUploadsTotal(adjustedTotal);
+        setUploadsTotalPages(Math.max(1, Math.ceil(adjustedTotal / DASHBOARD_UPLOADS_PAGE_SIZE)));
       } catch (error) {
         if (!isActive) {
           return;
@@ -594,6 +622,10 @@ function DashboardPageContent() {
   }
 
   function openDeleteBatchModal(batch: BatchRecord) {
+    if (isDemoBatchId(batch.id)) {
+      return;
+    }
+
     setBatchToDelete(batch);
     setDeleteBatchError("");
   }

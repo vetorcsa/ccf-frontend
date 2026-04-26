@@ -33,6 +33,60 @@ function formatFileSize(size: number): string {
   return `${value.toFixed(1)} ${units[unitIndex]}`;
 }
 
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 16V4" />
+      <path d="m17 9-5-5-5 5" />
+      <path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m20 6-11 11-5-5" />
+    </svg>
+  );
+}
+
 export function NewBatchModal({
   isOpen,
   batchName,
@@ -55,7 +109,7 @@ export function NewBatchModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/45 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="Novo lote"
@@ -68,28 +122,31 @@ export function NewBatchModal({
         className="absolute inset-0 cursor-pointer disabled:cursor-not-allowed"
       />
 
-      <div className="relative z-10 flex h-[95dvh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:h-auto sm:max-h-[88dvh] sm:max-w-2xl sm:rounded-2xl">
-        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">Novo Lote</h2>
-            <p className="mt-1 text-sm text-slate-600">Informe o nome do lote e envie os XMLs em uma única ação.</p>
+      <div className="relative z-10 flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div className="relative flex items-start justify-between border-b border-slate-100 bg-white px-5 py-5 sm:px-6">
+          <div className="pr-10">
+            <h2 className="text-xl font-bold text-slate-900">Novo Lote</h2>
+            <p className="mt-1 text-sm text-slate-500">Informe o nome do lote e envie os XMLs em uma única ação.</p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
             disabled={isLocked}
-            className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-slate-300 text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="absolute right-5 top-5 inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Fechar"
           >
-            ×
+            <CloseIcon />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto bg-white p-5 sm:p-6">
           <div>
-            <label htmlFor="batch-name" className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">
-              Nome do lote
+            <label
+              htmlFor="batch-name"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500"
+            >
+              Nome do Lote
             </label>
             <input
               id="batch-name"
@@ -98,37 +155,27 @@ export function NewBatchModal({
               disabled={isLocked}
               onChange={(event) => onChangeBatchName(event.target.value)}
               placeholder="Ex.: Supermercado A"
-              className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             />
           </div>
 
           <div>
             <label
               htmlFor="batch-files-input"
-              className={`flex items-center gap-3 rounded-lg border border-dashed border-blue-300 bg-blue-50/60 px-3 py-3 transition ${
-                isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-blue-50"
+              className={`group flex items-center gap-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/30 p-5 transition-all ${
+                isLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/80"
               }`}
             >
-              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-blue-700 text-white">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 transition-transform group-hover:scale-105">
+                <UploadIcon />
               </span>
               <div>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-sm font-semibold text-indigo-950">
                   {selectedFiles.length > 0 ? "Trocar arquivos XML" : "Selecionar arquivos XML"}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500">Seleção múltipla habilitada</p>
+                <p className="mt-0.5 text-xs font-medium text-indigo-600/70">Seleção múltipla habilitada</p>
               </div>
             </label>
 
@@ -143,59 +190,65 @@ export function NewBatchModal({
             />
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <p className="text-xs font-medium uppercase tracking-[0.06em] text-slate-500">Arquivos selecionados</p>
-            <p className="mt-1 text-sm text-slate-700">
-              {selectedFiles.length > 0
-                ? `${selectedFiles.length} arquivo(s) selecionado(s)`
-                : "Nenhum arquivo selecionado."}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Arquivos Selecionados
             </p>
-            <p className="mt-1 text-xs text-slate-500">Apenas XML (.xml).</p>
+
+            {selectedFiles.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium text-slate-900">
+                  {selectedFiles.length} arquivo(s) selecionado(s)
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Apenas XML (.xml).</p>
+
+                <ul className="mt-4 max-h-44 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                  {selectedFiles.map((file, index) => (
+                    <li key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-800">{file.name}</p>
+                        <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onRemoveFile(index)}
+                        disabled={isLocked}
+                        className="inline-flex h-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Remover
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-slate-900">Nenhum arquivo selecionado.</p>
+                <p className="text-xs text-slate-500">Apenas XML (.xml).</p>
+              </div>
+            )}
           </div>
 
-          {selectedFiles.length > 0 ? (
-            <div className="rounded-lg border border-slate-200 bg-white">
-              <ul className="max-h-44 divide-y divide-slate-100 overflow-y-auto">
-                {selectedFiles.map((file, index) => (
-                  <li key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-2 px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-slate-700">{file.name}</p>
-                      <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onRemoveFile(index)}
-                      disabled={isLocked}
-                      className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-slate-300 px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Remover
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
           {errorMessage ? (
-            <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <p className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {errorMessage}
             </p>
           ) : null}
 
           {successMessage ? (
-            <p className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               {successMessage}
             </p>
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 border-t border-slate-200 px-4 py-3 sm:px-5">
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
           <button
             type="button"
             onClick={onClose}
             disabled={isLocked}
-            className="h-10 cursor-pointer rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-10 cursor-pointer rounded-xl border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-32"
           >
             Cancelar
           </button>
@@ -204,8 +257,9 @@ export function NewBatchModal({
             type="button"
             onClick={onConfirm}
             disabled={isConfirmDisabled}
-            className="h-10 cursor-pointer rounded-md bg-blue-700 px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-44"
           >
+            {successMessage ? <CheckIcon /> : null}
             {isSubmitting ? "Enviando..." : successMessage ? "Concluído" : "Criar lote e enviar"}
           </button>
         </div>
