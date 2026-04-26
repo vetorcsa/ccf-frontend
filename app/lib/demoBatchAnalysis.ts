@@ -459,6 +459,138 @@ export const DEMO_BATCH_FILES: FileRecord[] = [
   uploadedBy: DEMO_FILE_UPLOADER,
 }));
 
+export const DEMO_BATCH_FINANCIALS = {
+  metrics: [
+    {
+      label: "Valor total de entradas",
+      value: 4835420.35,
+      helper: "XMLs de compra normalizados no período",
+      tone: "neutral",
+    },
+    {
+      label: "Valor total de saídas",
+      value: 5318790.72,
+      helper: "XMLs de venda cruzados com as entradas",
+      tone: "neutral",
+    },
+    {
+      label: "Base de cálculo analisada",
+      value: 4982110.44,
+      helper: "Base consolidada após deduções simuladas",
+      tone: "indigo",
+    },
+    {
+      label: "ICMS próprio",
+      value: 612348.18,
+      helper: "Valor estimado nas operações próprias",
+      tone: "neutral",
+    },
+    {
+      label: "ICMS ST",
+      value: 388902.55,
+      helper: "Substituição tributária recalculada",
+      tone: "amber",
+    },
+    {
+      label: "Crédito apurado",
+      value: 421390.72,
+      helper: "Crédito potencial identificado nas entradas",
+      tone: "emerald",
+    },
+    {
+      label: "Débito apurado",
+      value: 683941.11,
+      helper: "Débito estimado sobre as saídas",
+      tone: "rose",
+    },
+    {
+      label: "Impacto fiscal estimado",
+      value: 262550.39,
+      helper: "Diferença projetada para revisão fiscal",
+      tone: "rose",
+    },
+  ],
+  valueDivergences: [
+    {
+      code: "ICMS_ST_VALUE_MISMATCH",
+      title: "Valor de ICMS-ST divergente",
+      estimatedImpact: 78640.55,
+      documentsCount: 247,
+      occurrences: 782,
+      severity: "ERROR",
+    },
+    {
+      code: "INPUT_OUTPUT_TAX_TREATMENT_MISMATCH",
+      title: "Tratamento fiscal incompatível",
+      estimatedImpact: 64280.31,
+      documentsCount: 596,
+      occurrences: 1842,
+      severity: "CRITICAL",
+    },
+    {
+      code: "MISSING_ST_TREATMENT",
+      title: "Tratamento de ST ausente",
+      estimatedImpact: 51120.9,
+      documentsCount: 489,
+      occurrences: 1511,
+      severity: "CRITICAL",
+    },
+    {
+      code: "CREDIT_VALUE_MISMATCH",
+      title: "Valor de crédito divergente",
+      estimatedImpact: 34680.44,
+      documentsCount: 238,
+      occurrences: 633,
+      severity: "ERROR",
+    },
+    {
+      code: "INTERNAL_RATE_MISMATCH",
+      title: "Alíquota interna divergente",
+      estimatedImpact: 21435.18,
+      documentsCount: 337,
+      occurrences: 963,
+      severity: "ERROR",
+    },
+  ],
+  topDocuments: [
+    {
+      fileName: "NFe_35250100428508000195650010000018411000018418.xml",
+      operation: "Saída",
+      difference: 18420.91,
+      reason: "ICMS-ST recolhido abaixo do esperado para produtos com CEST obrigatório.",
+      status: "Crítico",
+    },
+    {
+      fileName: "NFe_35250100428508000195650010000018421000018429.xml",
+      operation: "Entrada",
+      difference: 15760.48,
+      reason: "Crédito apropriado acima do valor calculado pela regra fiscal simulada.",
+      status: "Atenção",
+    },
+    {
+      fileName: "NFe_35250100428508000195650010000018441000018441.xml",
+      operation: "Saída",
+      difference: 13980.12,
+      reason: "Alíquota efetiva incompatível com NCM, UF e natureza da operação.",
+      status: "Crítico",
+    },
+    {
+      fileName: "NFe_35250100428508000195650010000018461000018463.xml",
+      operation: "Saída",
+      difference: 11240.73,
+      reason: "Base de cálculo reduzida sem regra fiscal correspondente no período.",
+      status: "Atenção",
+    },
+    {
+      fileName: "NFe_35250100428508000195650010000018501000018502.xml",
+      operation: "Entrada",
+      difference: 9860.65,
+      reason: "Divergência entre tratamento fiscal de compra e venda do mesmo item.",
+      status: "Atenção",
+    },
+  ],
+} as const;
+
 export function isDemoBatchId(batchId: string | null | undefined): boolean {
   return batchId === DEMO_BATCH_ID;
 }

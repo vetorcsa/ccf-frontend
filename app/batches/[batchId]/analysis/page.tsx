@@ -16,6 +16,7 @@ import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import {
   buildDemoXmlBlob,
   DEMO_BATCH_ANALYSIS,
+  DEMO_BATCH_FINANCIALS,
   isDemoBatchId,
 } from "../../../lib/demoBatchAnalysis";
 import {
@@ -263,6 +264,20 @@ type NormalizedFiscalNote = {
 };
 
 type DocumentsTableVariant = "divergences" | "errors";
+type AnalysisTabKey = "overview" | "values";
+
+const ANALYSIS_TABS: Array<{ key: AnalysisTabKey; label: string; helper: string }> = [
+  {
+    key: "overview",
+    label: "Visão Geral",
+    helper: "Resumo, divergências e documentos",
+  },
+  {
+    key: "values",
+    label: "Valores",
+    helper: "Impacto financeiro da auditoria",
+  },
+];
 
 function resolveDocumentId(document: BatchAnalysisDocument): string | null {
   const candidate = typeof document.fileId === "string" ? document.fileId : document.id;
@@ -276,6 +291,18 @@ function formatInteger(value: number | null | undefined): string {
   }
 
   return `${value}`;
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function normalizeFiscalNotes(value: BatchAnalysisResponse["fiscalNotes"]): NormalizedFiscalNote[] {
@@ -387,6 +414,203 @@ function getDivergenceSeverityLabel(severity: string): string {
   return fallback || "Atenção";
 }
 
+function getFinancialToneClass(tone: string): string {
+  if (tone === "emerald") {
+    return "border-emerald-100 bg-emerald-50/60 text-emerald-700";
+  }
+
+  if (tone === "amber") {
+    return "border-amber-100 bg-amber-50/60 text-amber-700";
+  }
+
+  if (tone === "rose") {
+    return "border-rose-100 bg-rose-50/60 text-rose-700";
+  }
+
+  if (tone === "indigo") {
+    return "border-indigo-100 bg-indigo-50/60 text-indigo-700";
+  }
+
+  return "border-slate-200 bg-white text-slate-900";
+}
+
+function AnalysisTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: AnalysisTabKey;
+  onChange: (tab: AnalysisTabKey) => void;
+}) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <div className="grid gap-1 sm:inline-grid sm:grid-cols-2">
+        {ANALYSIS_TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onChange(tab.key)}
+              className={`cursor-pointer rounded-lg px-4 py-3 text-left transition-all ${
+                isActive
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+              aria-pressed={isActive}
+            >
+              <span className="block text-sm font-semibold">{tab.label}</span>
+              <span className={`mt-0.5 block text-xs ${isActive ? "text-slate-300" : "text-slate-400"}`}>
+                {tab.helper}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
+  if (!isDemoAnalysis) {
+    return (
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Valores</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          A visão financeira ainda não está disponível para lotes reais. Esta aba já fica preparada para receber
+          valores consolidados, impacto fiscal e maiores diferenças quando o motor financeiro for integrado.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <div className="mb-3">
+          <h2 className="text-base font-semibold text-slate-900">Valores da Auditoria</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Dados simulados para demonstrar o cruzamento financeiro entre entradas, saídas e regras fiscais.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {DEMO_BATCH_FINANCIALS.metrics.map((metric) => (
+            <article
+              key={metric.label}
+              className={`rounded-xl border p-4 shadow-sm ${getFinancialToneClass(metric.tone)}`}
+            >
+              <p className="text-xs font-medium text-slate-500">{metric.label}</p>
+              <p className="mt-2 text-xl font-bold leading-tight">{formatCurrency(metric.value)}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{metric.helper}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <header className="border-b border-slate-200 px-6 py-4">
+          <h3 className="text-base font-semibold text-slate-900">Maiores Divergências por Valor</h3>
+        </header>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full whitespace-nowrap text-left">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/80">
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Código</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Divergência
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Impacto Estimado
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Docs</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Ocorrências
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Severidade
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {DEMO_BATCH_FINANCIALS.valueDivergences.map((item) => (
+                <tr key={item.code} className="transition-colors hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{item.code}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{item.title}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                    {formatCurrency(item.estimatedImpact)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{item.documentsCount}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{item.occurrences}</td>
+                  <td className="px-6 py-4 text-right">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getDivergenceSeverityClass(
+                        item.severity,
+                      )}`}
+                    >
+                      {getDivergenceSeverityLabel(item.severity)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <header className="border-b border-slate-200 px-6 py-4">
+          <h3 className="text-base font-semibold text-slate-900">Documentos com Maior Diferença Financeira</h3>
+        </header>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full whitespace-nowrap text-left">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/80">
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Arquivo</th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Operação
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Diferença
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Motivo</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {DEMO_BATCH_FINANCIALS.topDocuments.map((document) => (
+                <tr key={document.fileName} className="transition-colors hover:bg-slate-50">
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{document.fileName}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{document.operation}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                    {formatCurrency(document.difference)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{document.reason}</td>
+                  <td className="px-6 py-4 text-right">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                        document.status === "Crítico"
+                          ? "border border-rose-200 bg-rose-50 text-rose-700"
+                          : "border border-amber-200 bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {document.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function DocumentsTable({
   variant,
   title,
@@ -494,6 +718,7 @@ export default function BatchAnalysisPage() {
   const params = useParams<{ batchId: string }>();
   const rawBatchId = params?.batchId;
   const batchId = Array.isArray(rawBatchId) ? rawBatchId[0] : rawBatchId;
+  const isDemoAnalysis = isDemoBatchId(batchId);
 
   const isHydrated = useIsHydrated();
   const token = isHydrated ? getAccessToken() : null;
@@ -503,6 +728,7 @@ export default function BatchAnalysisPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [analysis, setAnalysis] = useState<BatchAnalysisResponse | null>(null);
   const [downloadingActionKeys, setDownloadingActionKeys] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<AnalysisTabKey>("overview");
 
   useEffect(() => {
     if (isHydrated && !token) {
@@ -521,7 +747,7 @@ export default function BatchAnalysisPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      if (isDemoBatchId(batchId)) {
+      if (isDemoAnalysis) {
         setAnalysis(DEMO_BATCH_ANALYSIS);
         setIsLoading(false);
         return;
@@ -567,7 +793,7 @@ export default function BatchAnalysisPage() {
     return () => {
       isActive = false;
     };
-  }, [batchId, isHydrated, router, token]);
+  }, [batchId, isDemoAnalysis, isHydrated, router, token]);
 
   const batch = analysis?.batch ?? null;
 
@@ -643,7 +869,7 @@ export default function BatchAnalysisPage() {
     setDownloadingActionKeys((previous) => (previous.includes(actionKey) ? previous : [...previous, actionKey]));
 
     try {
-      if (isDemoBatchId(batchId)) {
+      if (isDemoAnalysis) {
         const fileName = batchDocument.originalName ?? "documento-demo.xml";
         const url = URL.createObjectURL(buildDemoXmlBlob(fileName));
         const link = document.createElement("a");
@@ -679,7 +905,7 @@ export default function BatchAnalysisPage() {
       return;
     }
 
-    if (isDemoBatchId(batchId)) {
+    if (isDemoAnalysis) {
       router.push(`/batches/${batchId}/documents`);
       return;
     }
@@ -803,6 +1029,10 @@ export default function BatchAnalysisPage() {
               <BatchInfoCard label="Total de Documentos" value={totalDocuments} />
             </section>
 
+            <AnalysisTabs activeTab={activeTab} onChange={setActiveTab} />
+
+            {activeTab === "overview" ? (
+              <>
             <section>
               <h2 className="mb-3 text-base font-semibold text-slate-900">Resumo da Análise</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -988,6 +1218,10 @@ export default function BatchAnalysisPage() {
                 </div>
               )}
             </section>
+              </>
+            ) : (
+              <ValuesTab isDemoAnalysis={isDemoAnalysis} />
+            )}
           </div>
         </div>
       </div>
