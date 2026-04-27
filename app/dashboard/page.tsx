@@ -10,7 +10,7 @@ import { UserMenu } from "../components/UserMenu";
 import { useBatchUpload } from "../hooks/useBatchUpload";
 import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
 import {
-  DEMO_BATCH_ID,
+  countVisibleDemoBatches,
   isDemoBatchId,
   mergeDemoBatchIntoFirstPage,
   shouldShowDemoBatch,
@@ -458,8 +458,8 @@ function DashboardPageContent() {
           page: 1,
           pageSize: DASHBOARD_STATS_PAGE_SIZE,
         });
-        const hasDemoBatchFromApi = response.data.some((batch) => batch.id === DEMO_BATCH_ID);
-        const adjustedTotal = response.total + (hasDemoBatchFromApi ? 0 : 1);
+        const demoBatchesFromApi = response.data.filter((batch) => isDemoBatchId(batch.id)).length;
+        const adjustedTotal = response.total + Math.max(0, countVisibleDemoBatches() - demoBatchesFromApi);
         const sampleSize = Math.max(statsBatches.length, 1);
         const sampleProcessed = statsBatches.filter((batch) => {
           const normalized = normalizeStatus(batch.status);
@@ -561,13 +561,20 @@ function DashboardPageContent() {
           dateFrom: uploadsDateFrom || undefined,
           dateTo: uploadsDateTo || undefined,
         });
-        const hasDemoBatchFromApi = response.data.some((batch) => batch.id === DEMO_BATCH_ID);
+        const demoBatchesFromApi = response.data.filter((batch) => isDemoBatchId(batch.id)).length;
         const demoMatchesFilters = shouldShowDemoBatch({
           search: activeSearch || undefined,
           dateFrom: uploadsDateFrom || undefined,
           dateTo: uploadsDateTo || undefined,
         });
-        const adjustedTotal = response.total + (demoMatchesFilters && !hasDemoBatchFromApi ? 1 : 0);
+        const visibleDemoCount = demoMatchesFilters
+          ? countVisibleDemoBatches({
+              search: activeSearch || undefined,
+              dateFrom: uploadsDateFrom || undefined,
+              dateTo: uploadsDateTo || undefined,
+            })
+          : 0;
+        const adjustedTotal = response.total + Math.max(0, visibleDemoCount - demoBatchesFromApi);
 
         setRecentBatches(sortedRecent);
         setUploadsTotal(adjustedTotal);

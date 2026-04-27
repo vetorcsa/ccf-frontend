@@ -15,9 +15,11 @@ import { UserMenu } from "../../../components/UserMenu";
 import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import {
   buildDemoXmlBlob,
-  DEMO_BATCH_ANALYSIS,
-  DEMO_BATCH_FINANCIALS,
+  getDemoBatchAnalysis,
+  getDemoBatchDemonstrativeRows,
+  getDemoBatchFinancials,
   isDemoBatchId,
+  type DemoDemonstrativeRow,
 } from "../../../lib/demoBatchAnalysis";
 import {
   getBatchAnalysis,
@@ -306,7 +308,7 @@ type NormalizedFiscalNote = {
 };
 
 type DocumentsTableVariant = "divergences" | "errors";
-type AnalysisTabKey = "overview" | "values";
+type AnalysisTabKey = "overview" | "values" | "demonstrative";
 
 const ANALYSIS_TABS: Array<{ key: AnalysisTabKey; label: string; helper: string }> = [
   {
@@ -318,6 +320,11 @@ const ANALYSIS_TABS: Array<{ key: AnalysisTabKey; label: string; helper: string 
     key: "values",
     label: "Valores",
     helper: "Impacto financeiro da auditoria",
+  },
+  {
+    key: "demonstrative",
+    label: "Demonstrativo",
+    helper: "Visão fiscal detalhada",
   },
 ];
 
@@ -443,6 +450,22 @@ function formatCurrency(value: number | null | undefined): string {
     currency: "BRL",
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatPercent(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatPercentWithSuffix(value: number | null | undefined): string {
+  const formatted = formatPercent(value);
+  return formatted === "-" ? formatted : `${formatted}%`;
 }
 
 function normalizeFiscalNotes(value: BatchAnalysisResponse["fiscalNotes"]): NormalizedFiscalNote[] {
@@ -583,7 +606,7 @@ function AnalysisTabs({
 }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-      <div className="grid gap-1 sm:inline-grid sm:grid-cols-2">
+      <div className="grid gap-1 sm:inline-grid sm:grid-cols-3">
         {ANALYSIS_TABS.map((tab) => {
           const isActive = activeTab === tab.key;
 
@@ -611,14 +634,14 @@ function AnalysisTabs({
   );
 }
 
-function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
-  if (!isDemoAnalysis) {
+function ValuesTab({ financials }: { financials: ReturnType<typeof getDemoBatchFinancials> }) {
+  if (!financials) {
     return (
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">Valores</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          A visão financeira ainda não está disponível para lotes reais. Esta aba já fica preparada para receber
-          valores consolidados, impacto fiscal e maiores diferenças quando o motor financeiro for integrado.
+          Não há valores financeiros consolidados disponíveis para este lote. Quando houver apuração de valores, esta
+          área exibirá bases, créditos, débitos, impacto fiscal e maiores diferenças identificadas.
         </p>
       </section>
     );
@@ -629,11 +652,10 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
       <section>
         <div className="mb-3">
           <h2 className="text-base font-semibold text-slate-900">Valores da Auditoria</h2>
-
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {DEMO_BATCH_FINANCIALS.metrics.map((metric) => (
+          {financials.metrics.map((metric) => (
             <article
               key={metric.label}
               className={`rounded-xl border p-4 shadow-sm ${getFinancialToneClass(metric.tone)}`}
@@ -674,7 +696,7 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {DEMO_BATCH_FINANCIALS.valueDivergences.map((item) => (
+              {financials.valueDivergences.map((item) => (
                 <tr key={item.code} className="transition-colors hover:bg-slate-50">
                   <td className="px-6 py-4">
                     <p className="text-sm font-medium text-slate-900">
@@ -727,7 +749,7 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {DEMO_BATCH_FINANCIALS.topDocuments.map((document) => (
+              {financials.topDocuments.map((document) => (
                 <tr key={document.fileName} className="transition-colors hover:bg-slate-50">
                   <td className="px-6 py-4 text-sm font-medium text-slate-900">{document.fileName}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{document.operation}</td>
@@ -745,6 +767,110 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
                     >
                       {document.status}
                     </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DemonstrativeTab({ rows }: { rows: DemoDemonstrativeRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Demonstrativo</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+          Não há demonstrativo fiscal detalhado disponível para este lote. Quando houver itens apurados, esta área
+          exibirá a visão tabular de valores declarados, valores apurados e informações fiscais por documento.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Demonstrativo Fiscal</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+          Detalhamento consolidado das operações analisadas, com parâmetros fiscais, valores declarados, valores
+          apurados e informações fiscais por documento e item.
+        </p>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <header className="border-b border-slate-200 px-6 py-4">
+          <h3 className="text-base font-semibold text-slate-900">Itens do Demonstrativo</h3>
+        </header>
+
+        <div className="max-h-[560px] overflow-auto">
+          <table className="min-w-[1900px] whitespace-nowrap text-left">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-slate-200 bg-slate-50/95">
+                {[
+                  "Documento",
+                  "Produto",
+                  "NCM",
+                  "CEST",
+                  "CFOP",
+                  "CST",
+                  "Alíquota interna",
+                  "MVA",
+                  "Redução de base",
+                  "Base op. própria",
+                  "Crédito",
+                  "Base op. ST",
+                  "Débito",
+                  "ICMS ST declarado",
+                  "ICMS ST apurado",
+                  "Divergência",
+                  "Informações ao fisco",
+                ].map((header) => (
+                  <th
+                    key={header}
+                    className="bg-slate-50/95 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur"
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {rows.map((row) => (
+                <tr key={`${row.document}-${row.product}`} className="transition-colors hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.document}</td>
+                  <td className="max-w-[280px] px-4 py-3 text-sm font-medium text-slate-900">
+                    <p className="truncate" title={row.product}>
+                      {row.product}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{row.ncm}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{row.cest}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{row.cfop}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{row.cst}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatPercentWithSuffix(row.internalRate)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatPercentWithSuffix(row.mva)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatPercentWithSuffix(row.baseReduction)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-slate-700">
+                    {formatCurrency(row.ownOperationBase)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-emerald-700">{formatCurrency(row.credit)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-slate-700">{formatCurrency(row.stBase)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-700">{formatCurrency(row.debit)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(row.declaredSt)}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-slate-900">
+                    {formatCurrency(row.calculatedSt)}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-rose-700">
+                    {formatCurrency(row.divergence)}
+                  </td>
+                  <td className="max-w-[360px] px-4 py-3 text-sm text-slate-600">
+                    <p className="truncate" title={row.fiscalInfo}>
+                      {row.fiscalInfo}
+                    </p>
                   </td>
                 </tr>
               ))}
@@ -825,9 +951,6 @@ function DivergencesTable({
                 <tr key={`${divergence.code ?? "DIV"}-${index}`} className="transition-colors hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-slate-900">{divergenceLabel}</p>
-                    {technicalCode ? (
-                      <p className="mt-0.5 font-mono text-[11px] text-slate-400">{technicalCode}</p>
-                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-sm text-slate-600">{divergence.title || "Sem título"}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">
@@ -1004,7 +1127,7 @@ export default function BatchAnalysisPage() {
       setErrorMessage("");
 
       if (isDemoAnalysis) {
-        setAnalysis(DEMO_BATCH_ANALYSIS);
+        setAnalysis(getDemoBatchAnalysis(batchId));
         setIsLoading(false);
         return;
       }
@@ -1086,6 +1209,8 @@ export default function BatchAnalysisPage() {
     () => normalizeDocuments(analysis?.documents?.withErrors),
     [analysis?.documents?.withErrors],
   );
+  const demoFinancials = useMemo(() => getDemoBatchFinancials(batchId), [batchId]);
+  const demoDemonstrativeRows = useMemo(() => getDemoBatchDemonstrativeRows(batchId), [batchId]);
 
   const totalDocuments = resolveSummaryNumber(
     analysis?.summary,
@@ -1160,8 +1285,8 @@ export default function BatchAnalysisPage() {
 
     try {
       if (isDemoAnalysis) {
-        const fileName = batchDocument.originalName ?? "documento-demo.xml";
-        const url = URL.createObjectURL(buildDemoXmlBlob(fileName));
+        const fileName = batchDocument.originalName ?? "documento.xml";
+        const url = URL.createObjectURL(buildDemoXmlBlob(fileName, batchId));
         const link = document.createElement("a");
 
         link.href = url;
@@ -1438,8 +1563,10 @@ export default function BatchAnalysisPage() {
               )}
             </section>
               </>
+            ) : activeTab === "values" ? (
+              <ValuesTab financials={demoFinancials} />
             ) : (
-              <ValuesTab isDemoAnalysis={isDemoAnalysis} />
+              <DemonstrativeTab rows={demoDemonstrativeRows} />
             )}
           </div>
         </div>

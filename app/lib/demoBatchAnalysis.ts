@@ -10,9 +10,13 @@ import type { FileRecord } from "../services/files.service";
 
 export const DEMO_BATCH_ID = "demo-supermercado-padrao";
 export const DEMO_BATCH_NAME = "Supermercado Padrão";
+export const FISCAL_DEMO_BATCH_ID = "demo-monitoramento-st-cbd";
+export const FISCAL_DEMO_BATCH_NAME = "Monitoramento ST - CIA Brasileira de Distribuição";
 
 const DEMO_CREATED_AT = "2025-02-03T13:45:00.000Z";
 const DEMO_UPDATED_AT = "2025-02-03T16:20:00.000Z";
+const FISCAL_DEMO_CREATED_AT = "2025-03-10T10:20:00.000Z";
+const FISCAL_DEMO_UPDATED_AT = "2025-03-10T15:40:00.000Z";
 
 export const DEMO_BATCH_RECORD: BatchRecord = {
   id: DEMO_BATCH_ID,
@@ -34,6 +38,28 @@ export const DEMO_BATCH_SUMMARY: BatchSummary = {
   status: "COMPLETED_WITH_ERRORS",
   createdAt: DEMO_CREATED_AT,
   updatedAt: DEMO_UPDATED_AT,
+};
+
+export const FISCAL_DEMO_BATCH_RECORD: BatchRecord = {
+  id: FISCAL_DEMO_BATCH_ID,
+  name: FISCAL_DEMO_BATCH_NAME,
+  status: "COMPLETED_WITH_ERRORS",
+  createdAt: FISCAL_DEMO_CREATED_AT,
+  updatedAt: FISCAL_DEMO_UPDATED_AT,
+  totalFiles: 18240,
+  uploadedBy: {
+    id: "demo-user-fisco",
+    name: "Admin",
+    email: "admin@ccf.demo",
+  },
+};
+
+export const FISCAL_DEMO_BATCH_SUMMARY: BatchSummary = {
+  id: FISCAL_DEMO_BATCH_ID,
+  name: FISCAL_DEMO_BATCH_NAME,
+  status: "COMPLETED_WITH_ERRORS",
+  createdAt: FISCAL_DEMO_CREATED_AT,
+  updatedAt: FISCAL_DEMO_UPDATED_AT,
 };
 
 const DIVERGENCE_DEFINITIONS: Array<{
@@ -450,7 +476,7 @@ export const DEMO_BATCH_FILES: FileRecord[] = [
   ...DEMO_BATCH_DOCUMENTS_WITH_ERRORS,
 ].map((document, index) => ({
   id: document.fileId ?? `demo-file-${index + 1}`,
-  originalName: document.originalName ?? `NFe_demo_${index + 1}.xml`,
+  originalName: document.originalName ?? `NFe_${index + 1}.xml`,
   mimeType: "application/xml",
   size: 186000 + index * 7340,
   status: document.error ? "ERROR" : "PROCESSED",
@@ -492,13 +518,13 @@ export const DEMO_BATCH_FINANCIALS = {
       tone: "amber",
     },
     {
-      label: "Crédito apurado",
+      label: "Crédito a restituir",
       value: 421390.72,
       helper: "Crédito potencial identificado nas entradas",
       tone: "emerald",
     },
     {
-      label: "Débito apurado",
+      label: "Débito a complementar",
       value: 683941.11,
       helper: "Débito estimado sobre as saídas",
       tone: "rose",
@@ -591,8 +617,467 @@ export const DEMO_BATCH_FINANCIALS = {
   ],
 } as const;
 
+export type DemoDemonstrativeRow = {
+  document: string;
+  product: string;
+  ncm: string;
+  cest: string;
+  cfop: string;
+  cst: string;
+  internalRate: number;
+  mva: number;
+  baseReduction: number;
+  ownOperationBase: number;
+  credit: number;
+  stBase: number;
+  debit: number;
+  declaredSt: number;
+  calculatedSt: number;
+  divergence: number;
+  fiscalInfo: string;
+};
+
+const FISCAL_DEMO_DIVERGENCES: BatchAnalysisDivergence[] = [
+  {
+    code: "ICMS_ST_VALUE_MISMATCH",
+    title: "Valor de ICMS ST divergente",
+    description:
+      "CST/CFOP com ICMS ST declarado inferior ao valor apurado pelo demonstrativo fiscal.",
+    severity: "CRITICAL",
+    documentsCount: 8200,
+    occurrences: 234588,
+    count: 234588,
+  },
+  {
+    code: "DEBIT_VALUE_MISMATCH",
+    title: "Valor de débito divergente",
+    description:
+      "Débito da operação ST apurado pelo fisco supera o valor declarado no período monitorado.",
+    severity: "ERROR",
+    documentsCount: 6100,
+    occurrences: 114379,
+    count: 114379,
+  },
+  {
+    code: "MISSING_ST_TREATMENT",
+    title: "Tratamento de ST não aplicado",
+    description:
+      "Itens do Anexo IV foram movimentados sem destaque compatível de substituição tributária.",
+    severity: "ERROR",
+    documentsCount: 2400,
+    occurrences: 26676,
+    count: 26676,
+  },
+  {
+    code: "CFOP_ST_MISMATCH",
+    title: "CFOP incompatível com substituição tributária",
+    description:
+      "CFOPs de transferência foram usados em itens com apuração de ICMS ST exigida pelo demonstrativo.",
+    severity: "WARNING",
+    documentsCount: 980,
+    occurrences: 4492,
+    count: 4492,
+  },
+  {
+    code: "MVA_MISMATCH",
+    title: "MVA divergente",
+    description:
+      "Margens de valor agregado consideradas pelo contribuinte divergem dos parâmetros fiscais por NST/NCM.",
+    severity: "WARNING",
+    documentsCount: 520,
+    occurrences: 2000,
+    count: 2000,
+  },
+  {
+    code: "BASE_REDUCTION_RATE_MISMATCH",
+    title: "Percentual de redução de base divergente",
+    description:
+      "Reduções de base aplicadas não correspondem aos percentuais previstos para crédito e débito fiscal.",
+    severity: "WARNING",
+    documentsCount: 740,
+    occurrences: 3520,
+    count: 3520,
+  },
+];
+
+const FISCAL_DEMO_DOCUMENTS_WITH_DIVERGENCES: BatchAnalysisDocument[] = [
+  ["NFe_53200347508411152177551000033996211197995700.xml", 6, 42],
+  ["NFe_53200347508411152177551000033996381197995928.xml", 5, 38],
+  ["NFe_53200347508411152177551000033996971197993853.xml", 6, 51],
+  ["NFe_53200547508411152177551100000029501106191923.xml", 4, 27],
+  ["NFe_53200547508411152177551100000029631106193282.xml", 4, 25],
+  ["NFe_53200547508411152177551100000031341106207215.xml", 5, 48],
+  ["NFe_53200547508411152177551100000050641106414302.xml", 5, 37],
+  ["NFe_53210147508411152177551000034011221198200115.xml", 7, 64],
+  ["NFe_53210147508411152177551000034011891198200742.xml", 6, 59],
+  ["NFe_53210247508411152177551000034022861198410088.xml", 5, 33],
+].map(([originalName, divergencesCount, items], index) => ({
+  id: `fiscal-demo-file-div-${index + 1}`,
+  fileId: `fiscal-demo-file-div-${index + 1}`,
+  originalName: String(originalName),
+  divergencesCount: Number(divergencesCount),
+  items: Number(items),
+}));
+
+const FISCAL_DEMO_DOCUMENTS_WITH_ERRORS: BatchAnalysisDocument[] = [
+  {
+    id: "fiscal-demo-file-error-1",
+    fileId: "fiscal-demo-file-error-1",
+    originalName: "NFe_53210247508411152177551000034029991198488120.xml",
+    divergencesCount: 0,
+    items: 0,
+    error: "Documento sem correspondência de produto revisado no demonstrativo fiscal.",
+  },
+];
+
+const FISCAL_DEMO_FISCAL_NOTES: BatchAnalysisFiscalNote[] = [
+  {
+    note: "Consolidação do demonstrativo fiscal de monitoramento ST, com comparação entre valores declarados e apurados.",
+    documentsCount: 18240,
+    occurrences: 1,
+  },
+  {
+    note: "CST 60 com CFOP 5409 concentra a maior divergência: declarado igual a zero e apurado superior a R$ 4 milhões.",
+    documentsCount: 8200,
+    occurrences: 234588,
+  },
+  {
+    note: "Período de apuração simulado: março de 2020 a janeiro de 2022, conforme lógica de vigência do ato declaratório.",
+    documentsCount: 18240,
+    occurrences: 1,
+  },
+  {
+    note: "Informações ao fisco destacam divergência de alíquota interna, MVA, redução de base e tratamento de ICMS ST por produto.",
+    documentsCount: 6100,
+    occurrences: 114379,
+  },
+];
+
+export const FISCAL_DEMO_BATCH_ANALYSIS: BatchAnalysisResponse = {
+  batch: FISCAL_DEMO_BATCH_SUMMARY,
+  period: {
+    startIssuedAt: "2020-03-01T00:00:00.000Z",
+    endIssuedAt: "2022-01-31T23:59:59.000Z",
+  },
+  summary: {
+    totalDocuments: 18240,
+    totalProcessed: 18237,
+    totalWithDivergences: 16890,
+    totalWithErrors: 1,
+    totalDivergences: FISCAL_DEMO_DIVERGENCES.length,
+  },
+  divergences: FISCAL_DEMO_DIVERGENCES,
+  fiscalNotes: FISCAL_DEMO_FISCAL_NOTES,
+  documents: {
+    withDivergences: FISCAL_DEMO_DOCUMENTS_WITH_DIVERGENCES,
+    withErrors: FISCAL_DEMO_DOCUMENTS_WITH_ERRORS,
+  },
+};
+
+export const FISCAL_DEMO_FINANCIALS = {
+  metrics: [
+    {
+      label: "Base operação própria",
+      value: 112546623.02,
+      helper: "Base consolidada das operações analisadas",
+      tone: "indigo",
+    },
+    {
+      label: "Crédito a restituir",
+      value: 608841.71,
+      helper: "Valor declarado/consolidado como crédito fiscal",
+      tone: "emerald",
+    },
+    {
+      label: "Base operação ST",
+      value: 31847596.72,
+      helper: "Base recalculada para substituição tributária",
+      tone: "amber",
+    },
+    {
+      label: "Débito a complementar",
+      value: 6381906.33,
+      helper: "Valor apurado pelo demonstrativo fiscal",
+      tone: "rose",
+    },
+    {
+      label: "ICMS ST declarado",
+      value: 608841.71,
+      helper: "Total declarado pelo contribuinte",
+      tone: "neutral",
+    },
+    {
+      label: "ICMS ST apurado",
+      value: 6381906.33,
+      helper: "Total apurado pela lógica fiscal",
+      tone: "rose",
+    },
+    {
+      label: "Diferença total apurada",
+      value: 5773064.63,
+      helper: "Apurado menos declarado",
+      tone: "rose",
+    },
+    {
+      label: "Impacto fiscal estimado",
+      value: 5773064.63,
+      helper: "Diferença consolidada para revisão fiscal",
+      tone: "rose",
+    },
+  ],
+  valueDivergences: [
+    {
+      code: "ICMS_ST_VALUE_MISMATCH",
+      title: "ICMS ST declarado x apurado",
+      estimatedImpact: 4076970.7,
+      documentsCount: 8200,
+      occurrences: 234588,
+      severity: "CRITICAL",
+    },
+    {
+      code: "DEBIT_VALUE_MISMATCH",
+      title: "Débito de ST apurado sem declaração compatível",
+      estimatedImpact: 1384433.54,
+      documentsCount: 6100,
+      occurrences: 114379,
+      severity: "ERROR",
+    },
+    {
+      code: "MISSING_ST_TREATMENT",
+      title: "ST ausente em itens do Anexo IV",
+      estimatedImpact: 178805.51,
+      documentsCount: 2400,
+      occurrences: 26676,
+      severity: "ERROR",
+    },
+    {
+      code: "BASE_REDUCTION_RATE_MISMATCH",
+      title: "Base reduzida divergente",
+      estimatedImpact: 68207.83,
+      documentsCount: 740,
+      occurrences: 3520,
+      severity: "WARNING",
+    },
+    {
+      code: "MVA_MISMATCH",
+      title: "MVA e alíquota fiscal divergentes",
+      estimatedImpact: 25157.56,
+      documentsCount: 520,
+      occurrences: 2000,
+      severity: "WARNING",
+    },
+  ],
+  topDocuments: [
+    {
+      fileName: "NFe_53200347508411152177551000033996211197995700.xml",
+      operation: "Saída",
+      difference: 98642.18,
+      reason: "Produto de limpeza com ICMS ST apurado acima do declarado.",
+      status: "Crítico",
+    },
+    {
+      fileName: "NFe_53200547508411152177551100000029501106191923.xml",
+      operation: "Saída",
+      difference: 74408.32,
+      reason: "Bebida quente com MVA e base ST recalculadas.",
+      status: "Crítico",
+    },
+    {
+      fileName: "NFe_53200347508411152177551000033996381197995928.xml",
+      operation: "Saída",
+      difference: 53318.44,
+      reason: "CST 60 sem débito declarado compatível com demonstrativo.",
+      status: "Atenção",
+    },
+    {
+      fileName: "NFe_53200547508411152177551100000050641106414302.xml",
+      operation: "Saída",
+      difference: 48891.2,
+      reason: "Alíquota interna e MVA divergentes em item do Anexo IV.",
+      status: "Atenção",
+    },
+  ],
+} as const;
+
+export const FISCAL_DEMO_DEMONSTRATIVE_ROWS: DemoDemonstrativeRow[] = [
+  {
+    document: "3399621",
+    product: "DET PO BRIL LIMP TT BAG LV1.6PG1.4K",
+    ncm: "38089419",
+    cest: "0",
+    cfop: "5409",
+    cst: "60",
+    internalRate: 29,
+    mva: 29.04,
+    baseReduction: 0,
+    ownOperationBase: 65630,
+    credit: 0,
+    stBase: 84686.95,
+    debit: 24559.22,
+    declaredSt: 0,
+    calculatedSt: 24559.22,
+    divergence: 24559.22,
+    fiscalInfo: "Item 39 do Anexo IV; ST apurada pelo fisco sem valor declarado correspondente.",
+  },
+  {
+    document: "3399638",
+    product: "SABAO PASTA COCO UFE 500G",
+    ncm: "34011900",
+    cest: "0",
+    cfop: "5409",
+    cst: "60",
+    internalRate: 29,
+    mva: 29.04,
+    baseReduction: 0,
+    ownOperationBase: 63240,
+    credit: 0,
+    stBase: 81599.3,
+    debit: 23663.8,
+    declaredSt: 0,
+    calculatedSt: 23663.8,
+    divergence: 23663.8,
+    fiscalInfo: "CST indica cobrança anterior, mas demonstrativo apura débito ST na saída.",
+  },
+  {
+    document: "3399697",
+    product: "LIMP VIM CLORO GEL 700ML ORIGINAL",
+    ncm: "38089419",
+    cest: "0",
+    cfop: "5409",
+    cst: "60",
+    internalRate: 29,
+    mva: 29.04,
+    baseReduction: 0,
+    ownOperationBase: 54010,
+    credit: 0,
+    stBase: 69703.3,
+    debit: 20213.96,
+    declaredSt: 0,
+    calculatedSt: 20213.96,
+    divergence: 20213.96,
+    fiscalInfo: "Produto classificado em segmento sujeito a ST conforme parâmetro NST do demonstrativo.",
+  },
+  {
+    document: "2950",
+    product: "PP VH PORT BCO DON JOAO I 750ML",
+    ncm: "22042100",
+    cest: "202400",
+    cfop: "5152",
+    cst: "00",
+    internalRate: 29,
+    mva: 29.04,
+    baseReduction: 0,
+    ownOperationBase: 91990,
+    credit: 2667.71,
+    stBase: 118705.9,
+    debit: 34424.71,
+    declaredSt: 9210.5,
+    calculatedSt: 31757,
+    divergence: 22546.5,
+    fiscalInfo: "Bebida quente; diferença entre ICMS ST declarado e apurado após MVA.",
+  },
+  {
+    document: "2963",
+    product: "PP VH PORT BCO DON JOAO I 750ML",
+    ncm: "22042100",
+    cest: "202400",
+    cfop: "5152",
+    cst: "10",
+    internalRate: 29,
+    mva: 29.04,
+    baseReduction: 0,
+    ownOperationBase: 91990,
+    credit: 2667.71,
+    stBase: 118705.9,
+    debit: 34424.71,
+    declaredSt: 10152.42,
+    calculatedSt: 31757,
+    divergence: 21604.58,
+    fiscalInfo: "Alíquota integral desmembrada entre ICMS ST e FCP ST conforme nota explicativa.",
+  },
+  {
+    document: "5064",
+    product: "WHIS ESC JW WHITE WALKER 750ML",
+    ncm: "22089000",
+    cest: "201600",
+    cfop: "5409",
+    cst: "70",
+    internalRate: 29,
+    mva: 29.04,
+    baseReduction: 12,
+    ownOperationBase: 1531910,
+    credit: 35233.93,
+    stBase: 1738942.77,
+    debit: 504293.4,
+    declaredSt: 398612.1,
+    calculatedSt: 469059.47,
+    divergence: 70447.37,
+    fiscalInfo: "Redução de base e MVA revisadas no demonstrativo de cálculo.",
+  },
+];
+
+export const FISCAL_DEMO_BATCH_FILES: FileRecord[] = [
+  ...FISCAL_DEMO_DOCUMENTS_WITH_DIVERGENCES,
+  ...FISCAL_DEMO_DOCUMENTS_WITH_ERRORS,
+].map((document, index) => ({
+  id: document.fileId ?? `fiscal-demo-file-${index + 1}`,
+  originalName: document.originalName ?? `NFe_monitoramento_st_${index + 1}.xml`,
+  mimeType: "application/xml",
+  size: 248000 + index * 9820,
+  status: document.error ? "ERROR" : "PROCESSED",
+  createdAt: `2022-01-${String((index % 28) + 1).padStart(2, "0")}T${String(9 + (index % 8)).padStart(2, "0")}:20:00.000Z`,
+  updatedAt: FISCAL_DEMO_UPDATED_AT,
+  uploadedBy: DEMO_FILE_UPLOADER,
+}));
+
+const DEMO_BATCH_RECORDS = [FISCAL_DEMO_BATCH_RECORD, DEMO_BATCH_RECORD];
+
+function getDemoBatchRecord(batchId: string | null | undefined): BatchRecord | null {
+  return DEMO_BATCH_RECORDS.find((batch) => batch.id === batchId) ?? null;
+}
+
+export function getDemoBatchSummary(batchId: string | null | undefined): BatchSummary | null {
+  if (batchId === FISCAL_DEMO_BATCH_ID) {
+    return FISCAL_DEMO_BATCH_SUMMARY;
+  }
+
+  if (batchId === DEMO_BATCH_ID) {
+    return DEMO_BATCH_SUMMARY;
+  }
+
+  return null;
+}
+
+export function getDemoBatchAnalysis(batchId: string | null | undefined): BatchAnalysisResponse | null {
+  if (batchId === FISCAL_DEMO_BATCH_ID) {
+    return FISCAL_DEMO_BATCH_ANALYSIS;
+  }
+
+  if (batchId === DEMO_BATCH_ID) {
+    return DEMO_BATCH_ANALYSIS;
+  }
+
+  return null;
+}
+
+export function getDemoBatchFinancials(batchId: string | null | undefined) {
+  if (batchId === FISCAL_DEMO_BATCH_ID) {
+    return FISCAL_DEMO_FINANCIALS;
+  }
+
+  if (batchId === DEMO_BATCH_ID) {
+    return DEMO_BATCH_FINANCIALS;
+  }
+
+  return null;
+}
+
+export function getDemoBatchDemonstrativeRows(batchId: string | null | undefined): DemoDemonstrativeRow[] {
+  return batchId === FISCAL_DEMO_BATCH_ID ? FISCAL_DEMO_DEMONSTRATIVE_ROWS : [];
+}
+
 export function isDemoBatchId(batchId: string | null | undefined): boolean {
-  return batchId === DEMO_BATCH_ID;
+  return getDemoBatchRecord(batchId) !== null;
 }
 
 function normalizeSearch(value: string | null | undefined): string {
@@ -628,15 +1113,64 @@ export function shouldShowDemoBatch({
   dateFrom?: string;
   dateTo?: string;
 } = {}): boolean {
+  return countVisibleDemoBatches({ search, dateFrom, dateTo }) > 0;
+}
+
+function matchesDemoBatchFilters(
+  batch: BatchRecord,
+  aliases: string[],
+  {
+    search,
+    dateFrom,
+    dateTo,
+  }: {
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  } = {},
+): boolean {
   const normalizedSearch = normalizeSearch(search);
   const matchesSearch =
     !normalizedSearch ||
-    DEMO_BATCH_NAME.toLowerCase().includes(normalizedSearch) ||
-    DEMO_BATCH_ID.includes(normalizedSearch) ||
-    "supermercado padrao".includes(normalizedSearch) ||
-    "auditoria fiscal demo".includes(normalizedSearch);
+    batch.name.toLowerCase().includes(normalizedSearch) ||
+    batch.id.includes(normalizedSearch) ||
+    aliases.some((alias) => alias.includes(normalizedSearch));
 
-  return matchesSearch && matchesDateFilter(DEMO_BATCH_RECORD.createdAt, dateFrom, dateTo);
+  return matchesSearch && matchesDateFilter(batch.createdAt, dateFrom, dateTo);
+}
+
+function getVisibleDemoBatches({
+  search,
+  dateFrom,
+  dateTo,
+}: {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+} = {}): BatchRecord[] {
+  return DEMO_BATCH_RECORDS.filter((batch) => {
+    const aliases =
+      batch.id === FISCAL_DEMO_BATCH_ID
+        ? [
+            "monitoramento st",
+            "cia brasileira de distribuicao",
+            "cia brasileira de distribuição",
+            "notificacao monitoramento",
+            "demonstrativo fiscal",
+            "icms st",
+          ]
+        : ["supermercado padrao", "supermercado padrão", "auditoria fiscal demo"];
+
+    return matchesDemoBatchFilters(batch, aliases, { search, dateFrom, dateTo });
+  });
+}
+
+export function countVisibleDemoBatches(params: {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+} = {}): number {
+  return getVisibleDemoBatches(params).length;
 }
 
 export function mergeDemoBatchIntoFirstPage({
@@ -654,32 +1188,43 @@ export function mergeDemoBatchIntoFirstPage({
   dateFrom?: string;
   dateTo?: string;
 }): BatchRecord[] {
-  if (page !== 1 || !shouldShowDemoBatch({ search, dateFrom, dateTo })) {
+  const visibleDemoBatches = getVisibleDemoBatches({ search, dateFrom, dateTo });
+
+  if (page !== 1 || visibleDemoBatches.length === 0) {
     return batches;
   }
 
-  const withoutDuplicate = batches.filter((batch) => batch.id !== DEMO_BATCH_ID);
-  return [DEMO_BATCH_RECORD, ...withoutDuplicate].slice(0, pageSize);
+  const demoIds = new Set(DEMO_BATCH_RECORDS.map((batch) => batch.id));
+  const withoutDuplicate = batches.filter((batch) => !demoIds.has(batch.id));
+  return [...visibleDemoBatches, ...withoutDuplicate].slice(0, pageSize);
 }
 
 export function filterDemoBatchFiles({
+  batchId,
   search,
   dateFrom,
   dateTo,
 }: {
+  batchId?: string | null;
   search?: string;
   dateFrom?: string;
   dateTo?: string;
 } = {}): FileRecord[] {
   const normalizedSearch = normalizeSearch(search);
+  const files = batchId === FISCAL_DEMO_BATCH_ID ? FISCAL_DEMO_BATCH_FILES : DEMO_BATCH_FILES;
 
-  return DEMO_BATCH_FILES.filter((file) => {
+  return files.filter((file) => {
     const matchesSearch = !normalizedSearch || file.originalName.toLowerCase().includes(normalizedSearch);
     return matchesSearch && matchesDateFilter(file.createdAt, dateFrom, dateTo);
   });
 }
 
-export function buildDemoXmlBlob(fileName: string): Blob {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<demoAuditDocument>\n  <batch>${DEMO_BATCH_NAME}</batch>\n  <file>${fileName}</file>\n  <period start="2025-01-01" end="2025-01-31" />\n  <status>mocked-demo</status>\n</demoAuditDocument>\n`;
+export function buildDemoXmlBlob(fileName: string, batchId?: string | null): Blob {
+  const batchName = getDemoBatchSummary(batchId)?.name ?? DEMO_BATCH_NAME;
+  const period =
+    batchId === FISCAL_DEMO_BATCH_ID
+      ? 'start="2020-03-01" end="2022-01-31"'
+      : 'start="2025-01-01" end="2025-01-31"';
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<auditDocument>\n  <batch>${batchName}</batch>\n  <file>${fileName}</file>\n  <period ${period} />\n  <status>processed</status>\n</auditDocument>\n`;
   return new Blob([xml], { type: "application/xml" });
 }

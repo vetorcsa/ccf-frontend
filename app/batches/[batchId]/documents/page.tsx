@@ -18,6 +18,7 @@ import {
   buildDemoXmlBlob,
   DEMO_BATCH_SUMMARY,
   filterDemoBatchFiles,
+  getDemoBatchSummary,
   isDemoBatchId,
 } from "../../../lib/demoBatchAnalysis";
 import { type BatchSummary, listBatchFiles } from "../../../services/batches.service";
@@ -216,6 +217,7 @@ export default function BatchFilesPage() {
 
       if (isDemoBatchId(batchId)) {
         const filteredFiles = filterDemoBatchFiles({
+          batchId,
           search: activeSearch || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
@@ -223,7 +225,7 @@ export default function BatchFilesPage() {
         const pageStart = (page - 1) * PAGE_SIZE;
         const pageEnd = pageStart + PAGE_SIZE;
 
-        setBatch(DEMO_BATCH_SUMMARY);
+        setBatch(getDemoBatchSummary(batchId) ?? DEMO_BATCH_SUMMARY);
         setFiles(filteredFiles.slice(pageStart, pageEnd));
         setTotal(filteredFiles.length);
         setTotalPages(Math.max(1, Math.ceil(filteredFiles.length / PAGE_SIZE)));
@@ -309,7 +311,7 @@ export default function BatchFilesPage() {
 
     try {
       if (isDemoBatchId(batchId)) {
-        const url = URL.createObjectURL(buildDemoXmlBlob(file.originalName));
+        const url = URL.createObjectURL(buildDemoXmlBlob(file.originalName, batchId));
         const link = document.createElement("a");
 
         link.href = url;
