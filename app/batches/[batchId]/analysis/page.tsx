@@ -248,6 +248,48 @@ function BackIcon() {
   );
 }
 
+function ExpandIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 3H3v5" />
+      <path d="M3 3l7 7" />
+      <path d="M16 3h5v5" />
+      <path d="M21 3l-7 7" />
+      <path d="M8 21H3v-5" />
+      <path d="M3 21l7-7" />
+      <path d="M16 21h5v-5" />
+      <path d="M21 21l-7-7" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 function normalizeDocuments(value: BatchAnalysisDocument[] | null | undefined): BatchAnalysisDocument[] {
   return Array.isArray(value) ? value : [];
 }
@@ -279,10 +321,108 @@ const ANALYSIS_TABS: Array<{ key: AnalysisTabKey; label: string; helper: string 
   },
 ];
 
+const DIVERGENCE_LABELS: Record<string, string> = {
+  NCM_INCOMPATIBLE: "NCM incompatível",
+  MISSING_CEST: "Ausência de CEST",
+  INVALID_CEST_NCM_COMBINATION: "Combinação inválida entre CEST e NCM",
+  INVALID_ANNEX_ITEM: "Item de anexo incompatível",
+  INVALID_CFOP_FOR_OPERATION: "CFOP incompatível com a operação",
+  CFOP_ST_MISMATCH: "CFOP incompatível com substituição tributária",
+  OPERATION_NATURE_MISMATCH: "Natureza da operação divergente",
+  ICMS_CODE_REGIME_MISMATCH: "Código de ICMS incompatível com o regime",
+  ICMS_CODE_PRODUCT_MISMATCH: "Código de ICMS incompatível com o produto",
+  PIS_COFINS_MISMATCH: "Divergência de PIS/COFINS",
+  PIS_COFINS_ZERO_UNEXPECTED: "PIS/COFINS zerado indevidamente",
+  INTERNAL_RATE_MISMATCH: "Alíquota interna divergente",
+  MISSING_BASE_REDUCTION: "Redução de base não aplicada",
+  UNEXPECTED_BASE_REDUCTION: "Redução de base aplicada indevidamente",
+  BASE_REDUCTION_RATE_MISMATCH: "Percentual de redução de base divergente",
+  MISSING_ST_TREATMENT: "Tratamento de ST não aplicado",
+  UNEXPECTED_ST_TREATMENT: "Tratamento de ST aplicado indevidamente",
+  MVA_MISMATCH: "MVA divergente",
+  ST_BASE_MISMATCH: "Base de cálculo de ST divergente",
+  ICMS_ST_VALUE_MISMATCH: "Valor de ICMS ST divergente",
+  MISSING_CREDIT_REVERSAL: "Estorno de crédito não aplicado",
+  UNEXPECTED_CREDIT_REVERSAL: "Estorno de crédito aplicado indevidamente",
+  MISSING_TAX_SUBSTITUTE_REGISTRATION: "Substituto tributário não identificado",
+  TAX_SUBSTITUTE_OUT_OF_VALIDITY: "Substituto tributário fora da vigência",
+  TAX_SUBSTITUTE_ANNEX_MISMATCH: "Substituto tributário incompatível com o anexo",
+  INPUT_OUTPUT_TAX_TREATMENT_MISMATCH: "Tratamento fiscal incompatível entre entrada e saída",
+  INPUT_OUTPUT_NCM_MISMATCH: "NCM divergente entre entrada e saída",
+  INPUT_OUTPUT_CEST_MISMATCH: "CEST divergente entre entrada e saída",
+  INPUT_OUTPUT_ICMS_CODE_MISMATCH: "Código de ICMS divergente entre entrada e saída",
+  INPUT_OUTPUT_CFOP_MISMATCH: "CFOP divergente entre entrada e saída",
+  INPUT_OUTPUT_RATE_MISMATCH: "Alíquota divergente entre entrada e saída",
+  INPUT_OUTPUT_ST_MISMATCH: "Tratamento de ST divergente entre entrada e saída",
+  OWN_OPERATION_BASE_MISMATCH: "Base da operação própria divergente",
+  CREDIT_VALUE_MISMATCH: "Valor de crédito divergente",
+  DEBIT_VALUE_MISMATCH: "Valor de débito divergente",
+  ITEM_TOTAL_MISMATCH: "Total do item divergente",
+};
+
 function resolveDocumentId(document: BatchAnalysisDocument): string | null {
   const candidate = typeof document.fileId === "string" ? document.fileId : document.id;
   const normalized = candidate?.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeDivergenceCode(code: string | null | undefined): string {
+  return code?.trim().toUpperCase() ?? "";
+}
+
+function getDivergenceDisplayLabel(code: string | null | undefined, fallback?: string | null): string {
+  const normalizedCode = normalizeDivergenceCode(code);
+  const mappedLabel = normalizedCode ? DIVERGENCE_LABELS[normalizedCode] : null;
+
+  if (mappedLabel) {
+    return mappedLabel;
+  }
+
+  const fallbackLabel = fallback?.trim();
+  if (fallbackLabel) {
+    return fallbackLabel;
+  }
+
+  return code?.trim() || "Divergência";
+}
+
+function getStableCodeNumber(code: string | null | undefined): number {
+  return normalizeDivergenceCode(code)
+    .split("")
+    .reduce((total, character) => total + character.charCodeAt(0), 0);
+}
+
+function resolveAffectedDocuments(
+  divergence: BatchAnalysisDivergence | null,
+  documents: BatchAnalysisDocument[],
+): BatchAnalysisDocument[] {
+  if (!divergence || documents.length === 0) {
+    return [];
+  }
+
+  const sampleIds = Array.isArray(divergence.sampleDocumentIds)
+    ? divergence.sampleDocumentIds
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : [];
+
+  if (sampleIds.length > 0) {
+    const sampleSet = new Set(sampleIds);
+    const matchedDocuments = documents.filter((document) => {
+      const documentId = resolveDocumentId(document);
+      return documentId ? sampleSet.has(documentId) : false;
+    });
+
+    if (matchedDocuments.length > 0) {
+      return matchedDocuments;
+    }
+  }
+
+  const seed = getStableCodeNumber(divergence.code);
+  const visibleCount = Math.max(1, Math.min(documents.length, 8));
+
+  return Array.from({ length: visibleCount }, (_, index) => documents[(seed + index) % documents.length]);
 }
 
 function formatInteger(value: number | null | undefined): string {
@@ -489,9 +629,7 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
       <section>
         <div className="mb-3">
           <h2 className="text-base font-semibold text-slate-900">Valores da Auditoria</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Dados simulados para demonstrar o cruzamento financeiro entre entradas, saídas e regras fiscais.
-          </p>
+
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -517,9 +655,11 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
           <table className="min-w-full whitespace-nowrap text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80">
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Código</th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Divergência
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Detalhe
                 </th>
                 <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Impacto Estimado
@@ -536,7 +676,12 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
             <tbody className="divide-y divide-slate-200">
               {DEMO_BATCH_FINANCIALS.valueDivergences.map((item) => (
                 <tr key={item.code} className="transition-colors hover:bg-slate-50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{item.code}</td>
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-medium text-slate-900">
+                      {getDivergenceDisplayLabel(item.code, item.title)}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[11px] text-slate-400">{item.code}</p>
+                  </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{item.title}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-slate-900">
                     {formatCurrency(item.estimatedImpact)}
@@ -607,6 +752,115 @@ function ValuesTab({ isDemoAnalysis }: { isDemoAnalysis: boolean }) {
           </table>
         </div>
       </section>
+    </div>
+  );
+}
+
+function DivergencesTable({
+  divergences,
+  isLoading,
+  onOpenAffectedDocuments,
+  variant = "compact",
+}: {
+  divergences: BatchAnalysisDivergence[];
+  isLoading: boolean;
+  onOpenAffectedDocuments: (divergence: BatchAnalysisDivergence) => void;
+  variant?: "compact" | "expanded";
+}) {
+  const isExpanded = variant === "expanded";
+  const containerClassName = isExpanded ? "max-h-[calc(100dvh-220px)]" : "max-h-[360px]";
+  const tableClassName = isExpanded ? "min-w-[1320px]" : "min-w-[1180px]";
+  const descriptionClassName = isExpanded ? "max-w-[520px]" : "max-w-[340px]";
+
+  return (
+    <div className={`${containerClassName} overflow-auto`}>
+      <table className={`${tableClassName} whitespace-nowrap text-left`}>
+        <thead className="sticky top-0 z-10">
+          <tr className="border-b border-slate-200 bg-slate-50/80">
+            <th className="w-[250px] bg-slate-50/95 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Divergência
+            </th>
+            <th className="w-[230px] bg-slate-50/95 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Título
+            </th>
+            <th className="w-[360px] bg-slate-50/95 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Descrição
+            </th>
+            <th className="w-[160px] bg-slate-50/95 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Documentos Afetados
+            </th>
+            <th className="w-[130px] bg-slate-50/95 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Ocorrências
+            </th>
+            <th className="w-[130px] bg-slate-50/95 px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Severidade
+            </th>
+            <th className="w-[150px] bg-slate-50/95 px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur">
+              Ação
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200">
+          {isLoading ? (
+            <tr>
+              <td colSpan={7} className="px-6 py-5 text-sm text-slate-500">
+                Carregando divergências do lote...
+              </td>
+            </tr>
+          ) : divergences.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-6 py-5 text-sm text-slate-500">
+                Nenhuma divergência detectada para este lote.
+              </td>
+            </tr>
+          ) : (
+            divergences.map((divergence, index) => {
+              const severity = divergence.severity?.trim() || "WARNING";
+              const severityLabel = getDivergenceSeverityLabel(severity);
+              const technicalCode = divergence.code?.trim();
+              const divergenceLabel = getDivergenceDisplayLabel(technicalCode, divergence.title);
+              const description = divergence.description || "Sem descrição informada.";
+
+              return (
+                <tr key={`${divergence.code ?? "DIV"}-${index}`} className="transition-colors hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-slate-900">{divergenceLabel}</p>
+                    {technicalCode ? (
+                      <p className="mt-0.5 font-mono text-[11px] text-slate-400">{technicalCode}</p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{divergence.title || "Sem título"}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    <p className={`${descriptionClassName} truncate`} title={description}>
+                      {description}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{formatInteger(divergence.documentsCount)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-600">
+                    {formatInteger(divergence.occurrences ?? divergence.count)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getDivergenceSeverityClass(severity)}`}
+                    >
+                      {severityLabel}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onOpenAffectedDocuments(divergence)}
+                      className="cursor-pointer rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
+                    >
+                      Ver afetados
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -729,6 +983,8 @@ export default function BatchAnalysisPage() {
   const [analysis, setAnalysis] = useState<BatchAnalysisResponse | null>(null);
   const [downloadingActionKeys, setDownloadingActionKeys] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AnalysisTabKey>("overview");
+  const [isDivergencesModalOpen, setIsDivergencesModalOpen] = useState(false);
+  const [selectedDivergence, setSelectedDivergence] = useState<BatchAnalysisDivergence | null>(null);
 
   useEffect(() => {
     if (isHydrated && !token) {
@@ -795,6 +1051,29 @@ export default function BatchAnalysisPage() {
     };
   }, [batchId, isDemoAnalysis, isHydrated, router, token]);
 
+  useEffect(() => {
+    if (!isDivergencesModalOpen && !selectedDivergence) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (selectedDivergence) {
+          setSelectedDivergence(null);
+          return;
+        }
+
+        setIsDivergencesModalOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDivergencesModalOpen, selectedDivergence]);
+
   const batch = analysis?.batch ?? null;
 
   const divergences = useMemo(() => normalizeDivergences(analysis?.divergences), [analysis?.divergences]);
@@ -836,7 +1115,9 @@ export default function BatchAnalysisPage() {
   const analyzedPeriodText = useMemo(() => formatAnalyzedPeriod(analysis?.period), [analysis?.period]);
   const principalDivergenceText = useMemo(() => {
     const firstDivergence = divergences[0];
-    return firstDivergence?.title?.trim() || firstDivergence?.code?.trim() || "-";
+    return firstDivergence
+      ? getDivergenceDisplayLabel(firstDivergence.code, firstDivergence.title)
+      : "-";
   }, [divergences]);
 
   const subtitleText = useMemo(() => {
@@ -846,6 +1127,15 @@ export default function BatchAnalysisPage() {
 
     return `Resumo analítico do lote: ${batch.name}`;
   }, [batch]);
+
+  const selectedAffectedDocuments = useMemo(
+    () => resolveAffectedDocuments(selectedDivergence, documentsWithDivergences),
+    [documentsWithDivergences, selectedDivergence],
+  );
+  const selectedDivergenceLabel = selectedDivergence
+    ? getDivergenceDisplayLabel(selectedDivergence.code, selectedDivergence.title)
+    : "";
+  const selectedDivergenceSeverity = selectedDivergence?.severity?.trim() || "WARNING";
 
   if (!isHydrated) {
     return (
@@ -915,6 +1205,10 @@ export default function BatchAnalysisPage() {
 
   function isActionDownloading(actionKey: string): boolean {
     return downloadingActionKeys.includes(actionKey);
+  }
+
+  function handleOpenAffectedDocuments(divergence: BatchAnalysisDivergence) {
+    setSelectedDivergence(divergence);
   }
 
   return (
@@ -1074,99 +1368,24 @@ export default function BatchAnalysisPage() {
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <header className="border-b border-slate-200 px-6 py-4">
+              <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
                 <h2 className="text-base font-semibold text-slate-900">Divergências Detectadas</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsDivergencesModalOpen(true)}
+                  className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                  aria-label="Expandir divergências detectadas"
+                  title="Expandir tabela"
+                >
+                  <ExpandIcon />
+                </button>
               </header>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full whitespace-nowrap text-left">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80">
-                      <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Código
-                      </th>
-                      <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Título
-                      </th>
-                      <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Descrição
-                      </th>
-                      <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Documentos Afetados
-                      </th>
-                      <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Ocorrências
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Severidade
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        Ação
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-5 text-sm text-slate-500">
-                          Carregando divergências do lote...
-                        </td>
-                      </tr>
-                    ) : divergences.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="px-6 py-5 text-sm text-slate-500">
-                          Nenhuma divergência detectada para este lote.
-                        </td>
-                      </tr>
-                    ) : (
-                      divergences.map((divergence, index) => {
-                        const severity = divergence.severity?.trim() || "WARNING";
-                        const severityLabel = getDivergenceSeverityLabel(severity);
-
-                        return (
-                          <tr key={`${divergence.code ?? "DIV"}-${index}`} className="transition-colors hover:bg-slate-50">
-                            <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                              {divergence.code || "-"}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                              {divergence.title || "Sem título"}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                              {divergence.description || "Sem descrição informada."}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                              {formatInteger(divergence.documentsCount)}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-slate-600">
-                              {formatInteger(divergence.occurrences ?? divergence.count)}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span
-                                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getDivergenceSeverityClass(severity)}`}
-                              >
-                                {severityLabel}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (batchId) {
-                                    router.push(`/batches/${batchId}/documents`);
-                                  }
-                                }}
-                                className="cursor-pointer rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
-                              >
-                                Ver documentos
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DivergencesTable
+                divergences={divergences}
+                isLoading={isLoading}
+                onOpenAffectedDocuments={handleOpenAffectedDocuments}
+              />
             </section>
 
             <DocumentsTable
@@ -1225,6 +1444,165 @@ export default function BatchAnalysisPage() {
           </div>
         </div>
       </div>
+
+      {isDivergencesModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="divergences-modal-title"
+          onClick={() => setIsDivergencesModalOpen(false)}
+        >
+          <section
+            className="flex max-h-[calc(100dvh-24px)] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-48px)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+              <div>
+                <h2 id="divergences-modal-title" className="text-lg font-semibold text-slate-900">
+                  Divergências Detectadas
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Visualização ampliada das divergências identificadas no lote.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsDivergencesModalOpen(false)}
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                aria-label="Fechar visualização ampliada"
+              >
+                <CloseIcon />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 p-4 sm:p-5">
+              <DivergencesTable
+                divergences={divergences}
+                isLoading={isLoading}
+                onOpenAffectedDocuments={handleOpenAffectedDocuments}
+                variant="expanded"
+              />
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {selectedDivergence ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="affected-documents-modal-title"
+          onClick={() => setSelectedDivergence(null)}
+        >
+          <section
+            className="flex max-h-[calc(100dvh-24px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-48px)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Documentos afetados
+                </p>
+                <h2 id="affected-documents-modal-title" className="mt-1 text-lg font-semibold text-slate-900">
+                  {selectedDivergenceLabel}
+                </h2>
+                {selectedDivergence.code ? (
+                  <p className="mt-1 font-mono text-xs text-slate-400">{selectedDivergence.code}</p>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDivergence(null)}
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                aria-label="Fechar documentos afetados"
+              >
+                <CloseIcon />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4 sm:p-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <article className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs font-medium text-slate-500">Documentos afetados</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">
+                    {formatInteger(selectedDivergence.documentsCount)}
+                  </p>
+                </article>
+                <article className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs font-medium text-slate-500">Ocorrências</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">
+                    {formatInteger(selectedDivergence.occurrences ?? selectedDivergence.count)}
+                  </p>
+                </article>
+                <article className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <p className="text-xs font-medium text-slate-500">Severidade</p>
+                  <span
+                    className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getDivergenceSeverityClass(
+                      selectedDivergenceSeverity,
+                    )}`}
+                  >
+                    {getDivergenceSeverityLabel(selectedDivergenceSeverity)}
+                  </span>
+                </article>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <h3 className="text-sm font-semibold text-slate-900">Lista contextual de documentos</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {selectedAffectedDocuments.length > 0
+                      ? "Exibindo documentos vinculados ou uma amostra coerente para esta divergência."
+                      : "Nenhum documento específico foi informado para esta divergência."}
+                  </p>
+                </div>
+
+                <div className="max-h-[360px] overflow-auto">
+                  <table className="min-w-[760px] whitespace-nowrap text-left">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="border-b border-slate-200 bg-slate-50/95">
+                        <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Arquivo
+                        </th>
+                        <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Divergências
+                        </th>
+                        <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                          Itens
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {selectedAffectedDocuments.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-5 text-sm text-slate-500">
+                            Não há documentos específicos disponíveis para esta divergência.
+                          </td>
+                        </tr>
+                      ) : (
+                        selectedAffectedDocuments.map((document, index) => (
+                          <tr key={`${resolveDocumentId(document) ?? "affected"}-${index}`} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm font-medium text-slate-900">
+                              {document.originalName?.trim() || `Documento ${index + 1}`}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">
+                              {formatInteger(document.divergencesCount)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{formatInteger(document.items)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
