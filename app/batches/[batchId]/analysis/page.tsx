@@ -16,11 +16,13 @@ import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import {
   buildDemoXmlBlob,
   getDemoBatchAnalysis,
+  getDemoBatchCompanyInfo,
   getDemoBatchDemonstrativeRows,
   getDemoBatchFinancials,
   isDemoBatchId,
   type DemoDemonstrativeRow,
 } from "../../../lib/demoBatchAnalysis";
+import { CompanyInfoCard } from "./components/CompanyInfoCard";
 import {
   getBatchAnalysis,
   type BatchAnalysisDivergence,
@@ -702,7 +704,6 @@ function ValuesTab({ financials }: { financials: ReturnType<typeof getDemoBatchF
                     <p className="text-sm font-medium text-slate-900">
                       {getDivergenceDisplayLabel(item.code, item.title)}
                     </p>
-                    <p className="mt-0.5 font-mono text-[11px] text-slate-400">{item.code}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">{item.title}</td>
                   <td className="px-6 py-4 text-sm font-semibold text-slate-900">
@@ -1211,6 +1212,7 @@ export default function BatchAnalysisPage() {
   );
   const demoFinancials = useMemo(() => getDemoBatchFinancials(batchId), [batchId]);
   const demoDemonstrativeRows = useMemo(() => getDemoBatchDemonstrativeRows(batchId), [batchId]);
+  const demoCompanyInfo = useMemo(() => getDemoBatchCompanyInfo(batchId), [batchId]);
 
   const totalDocuments = resolveSummaryNumber(
     analysis?.summary,
@@ -1447,6 +1449,8 @@ export default function BatchAnalysisPage() {
               <BatchInfoCard label="Período Analisado" value={analyzedPeriodText} />
               <BatchInfoCard label="Total de Documentos" value={totalDocuments} />
             </section>
+
+            {demoCompanyInfo ? <CompanyInfoCard company={demoCompanyInfo} /> : null}
 
             <AnalysisTabs activeTab={activeTab} onChange={setActiveTab} />
 
