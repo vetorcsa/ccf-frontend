@@ -23,6 +23,18 @@ export type BatchRecord = {
   updatedAt: string;
   uploadedBy?: BatchUploadedBy | null;
   totalFiles?: number;
+  totalDocuments?: number | null;
+  filesTotal?: number | null;
+  processedFiles?: number | null;
+  processedDocuments?: number | null;
+  filesProcessed?: number | null;
+  totalProcessed?: number | null;
+  failedFiles?: number | null;
+  errorFiles?: number | null;
+  filesWithErrors?: number | null;
+  totalWithErrors?: number | null;
+  progress?: number | null;
+  progressPercent?: number | null;
 };
 
 export type ListBatchesResponse = {
@@ -47,6 +59,19 @@ export type BatchSummary = {
   status: string;
   createdAt: string;
   updatedAt: string;
+  totalFiles?: number | null;
+  totalDocuments?: number | null;
+  filesTotal?: number | null;
+  processedFiles?: number | null;
+  processedDocuments?: number | null;
+  filesProcessed?: number | null;
+  totalProcessed?: number | null;
+  failedFiles?: number | null;
+  errorFiles?: number | null;
+  filesWithErrors?: number | null;
+  totalWithErrors?: number | null;
+  progress?: number | null;
+  progressPercent?: number | null;
 };
 
 export type ListBatchFilesResponse = {
@@ -123,7 +148,12 @@ type RawListBatchesResponse = Partial<ListBatchesResponse> & {
 };
 
 export type UploadBatchResponse = {
-  id: string;
+  id?: string;
+  batch?: BatchRecord | BatchSummary;
+  files?: {
+    accepted?: number;
+    rejected?: number;
+  };
 };
 
 function toSafeNumber(value: unknown, fallback: number): number {

@@ -1,3 +1,5 @@
+import { BATCH_UPLOAD_FILE_LIMIT_MESSAGE, MAX_BATCH_UPLOAD_FILES } from "../../hooks/useBatchUpload";
+
 type NewBatchModalProps = {
   isOpen: boolean;
   batchName: string;
@@ -11,6 +13,8 @@ type NewBatchModalProps = {
   onSelectFiles: (files: FileList | null) => void;
   onRemoveFile: (index: number) => void;
 };
+
+const SELECTED_FILES_PREVIEW_LIMIT = 12;
 
 function formatFileSize(size: number): string {
   if (!Number.isFinite(size) || size <= 0) {
@@ -106,6 +110,9 @@ export function NewBatchModal({
 
   const isLocked = isSubmitting || !!successMessage;
   const isConfirmDisabled = isLocked || !batchName.trim() || selectedFiles.length === 0;
+  const selectedFilesPreview = selectedFiles.slice(0, SELECTED_FILES_PREVIEW_LIMIT);
+  const hiddenSelectedFilesCount = Math.max(0, selectedFiles.length - selectedFilesPreview.length);
+  const selectedFilesTotalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
 
   return (
     <div
@@ -200,10 +207,12 @@ export function NewBatchModal({
                 <p className="text-sm font-medium text-slate-900">
                   {selectedFiles.length} arquivo(s) selecionado(s)
                 </p>
-                <p className="mt-1 text-xs text-slate-500">Apenas XML (.xml).</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Tamanho total aproximado: {formatFileSize(selectedFilesTotalSize)}. {BATCH_UPLOAD_FILE_LIMIT_MESSAGE}
+                </p>
 
                 <ul className="mt-4 max-h-44 divide-y divide-slate-200 overflow-y-auto rounded-lg border border-slate-200 bg-white">
-                  {selectedFiles.map((file, index) => (
+                  {selectedFilesPreview.map((file, index) => (
                     <li key={`${file.name}-${file.size}-${index}`} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-800">{file.name}</p>
@@ -220,12 +229,19 @@ export function NewBatchModal({
                       </button>
                     </li>
                   ))}
+                  {hiddenSelectedFilesCount > 0 ? (
+                    <li className="px-3 py-2.5 text-xs font-medium text-slate-500">
+                      + {hiddenSelectedFilesCount} arquivo(s) selecionado(s) além desta prévia.
+                    </li>
+                  ) : null}
                 </ul>
               </div>
             ) : (
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-medium text-slate-900">Nenhum arquivo selecionado.</p>
-                <p className="text-xs text-slate-500">Apenas XML (.xml).</p>
+                <p className="text-xs text-slate-500">
+                  Apenas XML (.xml). Limite: até {MAX_BATCH_UPLOAD_FILES} arquivos por envio.
+                </p>
               </div>
             )}
           </div>

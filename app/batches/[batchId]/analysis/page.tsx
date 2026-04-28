@@ -14,6 +14,12 @@ import { AppSidebar } from "../../../components/AppSidebar";
 import { UserMenu } from "../../../components/UserMenu";
 import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import {
+  getBatchProgressInfo,
+  getBatchStatusClass,
+  getBatchStatusLabel,
+  isBatchInProgress,
+} from "../../../lib/batchProgress";
+import {
   buildDemoXmlBlob,
   getDemoBatchAnalysis,
   getDemoBatchCompanyInfo,
@@ -32,60 +38,14 @@ import {
 } from "../../../services/batches.service";
 import { downloadFile } from "../../../services/files.service";
 
+const BATCH_ANALYSIS_POLL_INTERVAL_MS = 5000;
+
 function useIsHydrated(): boolean {
   return useSyncExternalStore(
     () => () => {},
     () => true,
     () => false,
   );
-}
-
-function normalizeStatus(status: string): string {
-  return status.trim().toUpperCase();
-}
-
-function getBatchStatusLabel(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "Concluído c/ erros";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "Falhou";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "Processando";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "Concluído";
-  }
-
-  return "Recebido";
-}
-
-function getBatchStatusClass(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "border border-amber-200 bg-amber-50 text-amber-700";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "border border-rose-200 bg-rose-50 text-rose-700";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "border border-slate-200 bg-slate-50 text-slate-700";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "border border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  return "border border-blue-200 bg-blue-50 text-blue-700";
 }
 
 function formatAbsoluteDate(value: string | null | undefined): string {
@@ -1109,6 +1069,7 @@ export default function BatchAnalysisPage() {
   const [activeTab, setActiveTab] = useState<AnalysisTabKey>("overview");
   const [isDivergencesModalOpen, setIsDivergencesModalOpen] = useState(false);
   const [selectedDivergence, setSelectedDivergence] = useState<BatchAnalysisDivergence | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (isHydrated && !token) {
@@ -1155,7 +1116,7 @@ export default function BatchAnalysisPage() {
           }
 
           if (status === 404) {
-            setErrorMessage("Análise do lote não encontrada.");
+            setErrorMessage("Análise ainda não disponível. O lote pode estar em processamento.");
             return;
           }
         }
@@ -1173,7 +1134,7 @@ export default function BatchAnalysisPage() {
     return () => {
       isActive = false;
     };
-  }, [batchId, isDemoAnalysis, isHydrated, router, token]);
+  }, [batchId, isDemoAnalysis, isHydrated, refreshTrigger, router, token]);
 
   useEffect(() => {
     if (!isDivergencesModalOpen && !selectedDivergence) {
@@ -1239,6 +1200,20 @@ export default function BatchAnalysisPage() {
     ["totalDivergenceTypes", "totalDivergences", "divergenceTypes", "divergenceCount"],
     divergences.length,
   );
+  const batchProgress = useMemo(
+    () =>
+      getBatchProgressInfo(
+        batch
+          ? {
+              ...batch,
+              totalFiles: batch.totalFiles ?? totalDocuments,
+              totalProcessed: batch.totalProcessed ?? processedDocuments,
+              totalWithErrors: batch.totalWithErrors ?? summaryWithErrors,
+            }
+          : null,
+      ),
+    [batch, processedDocuments, summaryWithErrors, totalDocuments],
+  );
   const analyzedPeriodText = useMemo(() => formatAnalyzedPeriod(analysis?.period), [analysis?.period]);
   const principalDivergenceText = useMemo(() => {
     const firstDivergence = divergences[0];
@@ -1254,6 +1229,27 @@ export default function BatchAnalysisPage() {
 
     return `Resumo analítico do lote: ${batch.name}`;
   }, [batch]);
+
+  useEffect(() => {
+    if (!isHydrated || !token || isDemoAnalysis) {
+      return;
+    }
+
+    const shouldPoll = !!errorMessage || (batch ? isBatchInProgress(batch.status) : false);
+    if (!shouldPoll) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setRefreshTrigger((previous) => previous + 1);
+      }
+    }, BATCH_ANALYSIS_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [batch, errorMessage, isDemoAnalysis, isHydrated, token]);
 
   const selectedAffectedDocuments = useMemo(
     () => resolveAffectedDocuments(selectedDivergence, documentsWithDivergences),
@@ -1433,7 +1429,7 @@ export default function BatchAnalysisPage() {
               </div>
             ) : null}
 
-            <section className="grid gap-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+            <section className="grid gap-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
               <BatchInfoCard label="Lote" value={batch?.name ?? "-"} />
               <BatchInfoCard
                 label="Status"
@@ -1448,6 +1444,22 @@ export default function BatchAnalysisPage() {
               <BatchInfoCard label="Data" value={formatAbsoluteDate(batch?.createdAt)} />
               <BatchInfoCard label="Período Analisado" value={analyzedPeriodText} />
               <BatchInfoCard label="Total de Documentos" value={totalDocuments} />
+              <BatchInfoCard
+                label="Progresso"
+                value={
+                  <div>
+                    {batchProgress.percent !== null ? (
+                      <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-indigo-500 transition-all"
+                          style={{ width: `${batchProgress.percent}%` }}
+                        />
+                      </div>
+                    ) : null}
+                    <span>{batchProgress.text ?? "Aguardando atualização"}</span>
+                  </div>
+                }
+              />
             </section>
 
             {demoCompanyInfo ? <CompanyInfoCard company={demoCompanyInfo} /> : null}

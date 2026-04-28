@@ -10,6 +10,12 @@ type UseBatchUploadOptions = {
 };
 
 const DEFAULT_CLOSE_DELAY_MS = 700;
+const configuredMaxBatchUploadFiles = Number(process.env.NEXT_PUBLIC_BATCH_UPLOAD_MAX_FILES);
+export const MAX_BATCH_UPLOAD_FILES =
+  Number.isInteger(configuredMaxBatchUploadFiles) && configuredMaxBatchUploadFiles > 0
+    ? configuredMaxBatchUploadFiles
+    : 2000;
+export const BATCH_UPLOAD_FILE_LIMIT_MESSAGE = `Para melhor estabilidade, envie até ${MAX_BATCH_UPLOAD_FILES} XMLs por vez.`;
 
 export function useBatchUpload({
   onSuccess,
@@ -104,7 +110,18 @@ export function useBatchUpload({
   }
 
   function selectFiles(files: FileList | null) {
-    setSelectedFiles(files ? Array.from(files) : []);
+    const nextFiles = files ? Array.from(files) : [];
+
+    if (nextFiles.length > MAX_BATCH_UPLOAD_FILES) {
+      setSelectedFiles([]);
+      setErrorMessage(
+        `Quantidade máxima de arquivos por envio excedida. Você selecionou ${nextFiles.length} arquivo(s). ${BATCH_UPLOAD_FILE_LIMIT_MESSAGE}`,
+      );
+      setSuccessMessage("");
+      return;
+    }
+
+    setSelectedFiles(nextFiles);
     setErrorMessage("");
     setSuccessMessage("");
   }
@@ -130,6 +147,12 @@ export function useBatchUpload({
       return;
     }
 
+    if (selectedFiles.length > MAX_BATCH_UPLOAD_FILES) {
+      setErrorMessage(`Quantidade máxima de arquivos por envio excedida. ${BATCH_UPLOAD_FILE_LIMIT_MESSAGE}`);
+      setSuccessMessage("");
+      return;
+    }
+
     const invalidFile = selectedFiles.find((file) => !isXmlFile(file));
     if (invalidFile) {
       setErrorMessage(`Arquivo inválido: ${invalidFile.name}. Selecione apenas XML (.xml).`);
@@ -142,8 +165,14 @@ export function useBatchUpload({
     setSuccessMessage("");
 
     try {
-      await uploadBatchRequest(trimmedName, selectedFiles);
-      setSuccessMessage("Lote enviado com sucesso.");
+      const response = await uploadBatchRequest(trimmedName, selectedFiles);
+      const acceptedFiles = response.files?.accepted;
+      const receivedText =
+        typeof acceptedFiles === "number" && acceptedFiles > 0
+          ? `Lote recebido com ${acceptedFiles} arquivo(s).`
+          : "Lote recebido com sucesso.";
+
+      setSuccessMessage(`${receivedText} O processamento continuará em background.`);
 
       if (onSuccess) {
         await onSuccess();

@@ -10,18 +10,27 @@ import { UserMenu } from "../components/UserMenu";
 import { useBatchUpload } from "../hooks/useBatchUpload";
 import { useAuthenticatedUser } from "../hooks/useAuthenticatedUser";
 import {
+  getBatchProgressInfo,
+  getBatchStatusClass,
+  getBatchStatusDotClass,
+  getBatchStatusLabel,
+  isBatchFailed,
+  isBatchInProgress,
+  isBatchProcessed,
+} from "../lib/batchProgress";
+import {
   countVisibleDemoBatches,
   isDemoBatchId,
-  mergeDemoBatchIntoFirstPage,
-  shouldShowDemoBatch,
+  mergeDemoBatchesWithRealBatches,
 } from "../lib/demoBatchAnalysis";
 import { BatchRecord, deleteBatch, listBatches } from "../services/batches.service";
 import { DeleteBatchModal } from "./components/DeleteBatchModal";
 import { NewBatchModal } from "./components/NewBatchModal";
 
 const DASHBOARD_STATS_PAGE_SIZE = 20;
-const DASHBOARD_UPLOADS_PAGE_SIZE = 5;
+const DASHBOARD_UPLOADS_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 350;
+const BATCH_STATUS_POLL_INTERVAL_MS = 5000;
 
 type DashboardStats = {
   totalBatches: number;
@@ -38,76 +47,6 @@ function useIsHydrated(): boolean {
     () => true,
     () => false,
   );
-}
-
-function normalizeStatus(status: string): string {
-  return status.trim().toUpperCase();
-}
-
-function getDashboardStatusLabel(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "Concluído c/ erros";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "Falhou";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "Processando";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "Concluído";
-  }
-
-  return "Recebido";
-}
-
-function getDashboardStatusClass(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "border border-amber-200 bg-amber-50 text-amber-700";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "border border-rose-200 bg-rose-50 text-rose-700";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "border border-slate-200 bg-slate-50 text-slate-700";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "border border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  return "border border-blue-200 bg-blue-50 text-blue-700";
-}
-
-function getDashboardStatusDotClass(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "bg-amber-500";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "bg-rose-500";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "bg-slate-500";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "bg-emerald-500";
-  }
-
-  return "bg-blue-600";
 }
 
 function formatDateParts(value: string): { date: string; time: string } {
@@ -453,27 +392,14 @@ function DashboardPageContent() {
           return;
         }
 
-        const statsBatches = mergeDemoBatchIntoFirstPage({
+        const statsBatches = mergeDemoBatchesWithRealBatches({
           batches: response.data,
-          page: 1,
-          pageSize: DASHBOARD_STATS_PAGE_SIZE,
         });
         const demoBatchesFromApi = response.data.filter((batch) => isDemoBatchId(batch.id)).length;
         const adjustedTotal = response.total + Math.max(0, countVisibleDemoBatches() - demoBatchesFromApi);
         const sampleSize = Math.max(statsBatches.length, 1);
-        const sampleProcessed = statsBatches.filter((batch) => {
-          const normalized = normalizeStatus(batch.status);
-          return normalized.includes("COMPLETED") || normalized.includes("PROCESSED");
-        }).length;
-        const sampleErrors = statsBatches.filter((batch) => {
-          const normalized = normalizeStatus(batch.status);
-          return (
-            normalized.includes("FAILED") ||
-            normalized.includes("ERROR") ||
-            normalized.includes("FAIL") ||
-            normalized.includes("COMPLETED_WITH_ERRORS")
-          );
-        }).length;
+        const sampleProcessed = statsBatches.filter((batch) => isBatchProcessed(batch.status)).length;
+        const sampleErrors = statsBatches.filter((batch) => isBatchFailed(batch.status)).length;
 
         const estimatedProcessed = Math.round((sampleProcessed / sampleSize) * adjustedTotal);
         const estimatedErrors = Math.round((sampleErrors / sampleSize) * adjustedTotal);
@@ -538,12 +464,17 @@ function DashboardPageContent() {
       setErrorMessage("");
 
       try {
-        const response = await listBatches({
-          page: uploadsPage,
-          pageSize: DASHBOARD_UPLOADS_PAGE_SIZE,
+        const filters = {
           search: activeSearch || undefined,
           dateFrom: uploadsDateFrom || undefined,
           dateTo: uploadsDateTo || undefined,
+        };
+        const visibleDemoCount = countVisibleDemoBatches(filters);
+        const realItemsNeeded = Math.max(0, uploadsPage * DASHBOARD_UPLOADS_PAGE_SIZE - visibleDemoCount);
+        const response = await listBatches({
+          page: 1,
+          pageSize: Math.max(DASHBOARD_UPLOADS_PAGE_SIZE, realItemsNeeded),
+          ...filters,
         });
 
         if (!isActive) {
@@ -553,30 +484,17 @@ function DashboardPageContent() {
         const sortedRealBatches = [...response.data].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
-        const sortedRecent = mergeDemoBatchIntoFirstPage({
+        const mergedBatches = mergeDemoBatchesWithRealBatches({
           batches: sortedRealBatches,
-          page: uploadsPage,
-          pageSize: DASHBOARD_UPLOADS_PAGE_SIZE,
-          search: activeSearch || undefined,
-          dateFrom: uploadsDateFrom || undefined,
-          dateTo: uploadsDateTo || undefined,
+          ...filters,
         });
+        const pageStart = (uploadsPage - 1) * DASHBOARD_UPLOADS_PAGE_SIZE;
+        const pageEnd = pageStart + DASHBOARD_UPLOADS_PAGE_SIZE;
+        const paginatedRecent = mergedBatches.slice(pageStart, pageEnd);
         const demoBatchesFromApi = response.data.filter((batch) => isDemoBatchId(batch.id)).length;
-        const demoMatchesFilters = shouldShowDemoBatch({
-          search: activeSearch || undefined,
-          dateFrom: uploadsDateFrom || undefined,
-          dateTo: uploadsDateTo || undefined,
-        });
-        const visibleDemoCount = demoMatchesFilters
-          ? countVisibleDemoBatches({
-              search: activeSearch || undefined,
-              dateFrom: uploadsDateFrom || undefined,
-              dateTo: uploadsDateTo || undefined,
-            })
-          : 0;
         const adjustedTotal = response.total + Math.max(0, visibleDemoCount - demoBatchesFromApi);
 
-        setRecentBatches(sortedRecent);
+        setRecentBatches(paginatedRecent);
         setUploadsTotal(adjustedTotal);
         setUploadsTotalPages(Math.max(1, Math.ceil(adjustedTotal / DASHBOARD_UPLOADS_PAGE_SIZE)));
       } catch (error) {
@@ -615,6 +533,27 @@ function DashboardPageContent() {
     uploadsPage,
     refreshTrigger,
   ]);
+
+  const hasBatchInProgress = useMemo(
+    () => recentBatches.some((batch) => isBatchInProgress(batch.status)),
+    [recentBatches],
+  );
+
+  useEffect(() => {
+    if (!isHydrated || !token || !hasBatchInProgress) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setRefreshTrigger((previous) => previous + 1);
+      }
+    }, BATCH_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [hasBatchInProgress, isHydrated, token]);
 
   if (!isHydrated) {
     return (
@@ -859,6 +798,7 @@ function DashboardPageContent() {
                         {!uploadsLoading
                           ? recentBatches.map((batch) => {
                               const dateParts = formatDateParts(batch.createdAt);
+                              const progress = getBatchProgressInfo(batch);
 
                               return (
                                 <tr key={batch.id} className="group transition-colors hover:bg-slate-50">
@@ -884,16 +824,32 @@ function DashboardPageContent() {
                                     <p className="text-xs text-slate-500">{dateParts.time}</p>
                                   </td>
                                   <td className="px-6 py-4">
-                                    <span
-                                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${getDashboardStatusClass(
-                                        batch.status,
-                                      )}`}
-                                    >
+                                    <div className="max-w-48">
                                       <span
-                                        className={`h-1.5 w-1.5 rounded-full ${getDashboardStatusDotClass(batch.status)}`}
-                                      />
-                                      {getDashboardStatusLabel(batch.status)}
-                                    </span>
+                                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${getBatchStatusClass(
+                                          batch.status,
+                                        )}`}
+                                      >
+                                        <span
+                                          className={`h-1.5 w-1.5 rounded-full ${getBatchStatusDotClass(batch.status)}`}
+                                        />
+                                        {getBatchStatusLabel(batch.status)}
+                                      </span>
+
+                                      {progress.text ? (
+                                        <div className="mt-2">
+                                          {progress.percent !== null ? (
+                                            <div className="mb-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                              <div
+                                                className="h-full rounded-full bg-indigo-500 transition-all"
+                                                style={{ width: `${progress.percent}%` }}
+                                              />
+                                            </div>
+                                          ) : null}
+                                          <p className="text-xs text-slate-500">{progress.text}</p>
+                                        </div>
+                                      ) : null}
+                                    </div>
                                   </td>
                                   <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-2">

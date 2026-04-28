@@ -2881,6 +2881,24 @@ export function mergeDemoBatchIntoFirstPage({
   return [...visibleDemoBatches, ...withoutDuplicate].slice(0, pageSize);
 }
 
+export function mergeDemoBatchesWithRealBatches({
+  batches,
+  search,
+  dateFrom,
+  dateTo,
+}: {
+  batches: BatchRecord[];
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): BatchRecord[] {
+  const visibleDemoBatches = getVisibleDemoBatches({ search, dateFrom, dateTo });
+  const demoIds = new Set(DEMO_BATCH_RECORDS.map((batch) => batch.id));
+  const realBatches = batches.filter((batch) => !demoIds.has(batch.id));
+
+  return [...visibleDemoBatches, ...realBatches];
+}
+
 export function filterDemoBatchFiles({
   batchId,
   search,

@@ -15,6 +15,12 @@ import { UserMenu } from "../../../components/UserMenu";
 import { useAuthenticatedUser } from "../../../hooks/useAuthenticatedUser";
 import { getFileStatusBadgeClass, getFileStatusLabel } from "../../../files/utils/fileStatus";
 import {
+  getBatchProgressInfo,
+  getBatchStatusClass,
+  getBatchStatusLabel,
+  isBatchInProgress,
+} from "../../../lib/batchProgress";
+import {
   buildDemoXmlBlob,
   DEMO_BATCH_SUMMARY,
   filterDemoBatchFiles,
@@ -26,6 +32,7 @@ import { downloadFile, type FileRecord } from "../../../services/files.service";
 
 const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 350;
+const BATCH_STATUS_POLL_INTERVAL_MS = 5000;
 
 function useIsHydrated(): boolean {
   return useSyncExternalStore(
@@ -33,54 +40,6 @@ function useIsHydrated(): boolean {
     () => true,
     () => false,
   );
-}
-
-function normalizeStatus(status: string): string {
-  return status.trim().toUpperCase();
-}
-
-function getBatchStatusLabel(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "Concluído c/ erros";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "Falhou";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "Processando";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "Concluído";
-  }
-
-  return "Recebido";
-}
-
-function getBatchStatusClass(status: string): string {
-  const normalized = normalizeStatus(status);
-
-  if (normalized.includes("COMPLETED_WITH_ERRORS")) {
-    return "border border-amber-200 bg-amber-100 text-amber-700";
-  }
-
-  if (normalized.includes("FAILED") || normalized.includes("ERROR") || normalized.includes("FAIL")) {
-    return "border border-rose-200 bg-rose-100 text-rose-700";
-  }
-
-  if (normalized.includes("PROCESSING")) {
-    return "border border-slate-300 bg-slate-200 text-slate-700";
-  }
-
-  if (normalized.includes("COMPLETED") || normalized.includes("PROCESSED")) {
-    return "border border-emerald-200 bg-emerald-100 text-emerald-700";
-  }
-
-  return "border border-blue-200 bg-blue-100 text-blue-700";
 }
 
 function formatAbsoluteDate(value: string | null | undefined): string {
@@ -165,6 +124,7 @@ export default function BatchFilesPage() {
   const [dateTo, setDateTo] = useState("");
   const [openMenuFileId, setOpenMenuFileId] = useState<string | null>(null);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (isHydrated && !token) {
@@ -283,7 +243,7 @@ export default function BatchFilesPage() {
     return () => {
       isActive = false;
     };
-  }, [activeSearch, batchId, dateFrom, dateTo, isHydrated, page, router, token]);
+  }, [activeSearch, batchId, dateFrom, dateTo, isHydrated, page, refreshTrigger, router, token]);
 
   const subtitleText = useMemo(() => {
     if (!batch) {
@@ -292,6 +252,27 @@ export default function BatchFilesPage() {
 
     return `Documentos do lote: ${batch.name}`;
   }, [batch]);
+
+  const batchProgress = useMemo(
+    () => getBatchProgressInfo(batch ? { ...batch, totalFiles: batch.totalFiles ?? total } : null),
+    [batch, total],
+  );
+
+  useEffect(() => {
+    if (!isHydrated || !token || !batch || !isBatchInProgress(batch.status) || isDemoBatchId(batchId)) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setRefreshTrigger((previous) => previous + 1);
+      }
+    }, BATCH_STATUS_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [batch, batchId, isHydrated, token]);
 
   if (!isHydrated) {
     return (
@@ -410,7 +391,7 @@ export default function BatchFilesPage() {
               </button>
             </div>
 
-            <section className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
               <BatchInfoCard label="Lote" value={batch?.name ?? "-"} />
               <BatchInfoCard
                 label="Status"
@@ -424,6 +405,22 @@ export default function BatchFilesPage() {
               />
               <BatchInfoCard label="Data" value={formatAbsoluteDate(batch?.createdAt)} />
               <BatchInfoCard label="Arquivos no lote" value={total} />
+              <BatchInfoCard
+                label="Progresso"
+                value={
+                  <div>
+                    {batchProgress.percent !== null ? (
+                      <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-indigo-500 transition-all"
+                          style={{ width: `${batchProgress.percent}%` }}
+                        />
+                      </div>
+                    ) : null}
+                    <span>{batchProgress.text ?? "Aguardando atualização"}</span>
+                  </div>
+                }
+              />
             </section>
 
             <section className="mt-3.5 flex min-h-[340px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
