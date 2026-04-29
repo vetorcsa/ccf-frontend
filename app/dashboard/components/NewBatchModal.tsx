@@ -113,6 +113,7 @@ export function NewBatchModal({
   const selectedFilesPreview = selectedFiles.slice(0, SELECTED_FILES_PREVIEW_LIMIT);
   const hiddenSelectedFilesCount = Math.max(0, selectedFiles.length - selectedFilesPreview.length);
   const selectedFilesTotalSize = selectedFiles.reduce((total, file) => total + file.size, 0);
+  const confirmButtonLabel = isSubmitting ? "Enviando..." : successMessage ? "Concluído" : "Criar lote e enviar";
 
   return (
     <div
@@ -275,8 +276,15 @@ export function NewBatchModal({
             disabled={isConfirmDisabled}
             className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-44"
           >
-            {successMessage ? <CheckIcon /> : null}
-            {isSubmitting ? "Enviando..." : successMessage ? "Concluído" : "Criar lote e enviar"}
+            <span
+              aria-hidden="true"
+              className={`grid h-4 shrink-0 place-items-center overflow-hidden transition-all ${
+                successMessage ? "w-4 opacity-100" : "w-0 opacity-0"
+              }`}
+            >
+              <CheckIcon />
+            </span>
+            <span>{confirmButtonLabel}</span>
           </button>
         </div>
       </div>
