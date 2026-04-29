@@ -624,34 +624,10 @@ export const DEMO_BATCH_FILES: FileRecord[] = [
 export const DEMO_BATCH_FINANCIALS = {
   metrics: [
     {
-      label: "Valor total de entradas",
-      value: 4835420.35,
-      helper: "XMLs de compra normalizados no período",
-      tone: "neutral",
-    },
-    {
-      label: "Valor total de saídas",
-      value: 5318790.72,
-      helper: "XMLs de venda cruzados com as entradas",
-      tone: "neutral",
-    },
-    {
-      label: "Base de cálculo analisada",
-      value: 4982110.44,
-      helper: "Base consolidada após deduções simuladas",
+      label: "Base operação própria",
+      value: 10154211.07,
+      helper: "Entradas e saídas consolidadas no período",
       tone: "indigo",
-    },
-    {
-      label: "ICMS próprio",
-      value: 612348.18,
-      helper: "Valor estimado nas operações próprias",
-      tone: "neutral",
-    },
-    {
-      label: "ICMS ST",
-      value: 388902.55,
-      helper: "Substituição tributária recalculada",
-      tone: "amber",
     },
     {
       label: "Crédito a restituir",
@@ -660,15 +636,39 @@ export const DEMO_BATCH_FINANCIALS = {
       tone: "emerald",
     },
     {
+      label: "Base operação ST",
+      value: 552665.92,
+      helper: "Base intermediária recalculada para substituição tributária",
+      tone: "amber",
+    },
+    {
       label: "Débito a complementar",
       value: 683941.11,
       helper: "Débito estimado sobre as saídas",
       tone: "rose",
     },
     {
-      label: "Impacto fiscal estimado",
+      label: "ICMS ST declarado",
+      value: 388902.55,
+      helper: "Total declarado pelo contribuinte",
+      tone: "neutral",
+    },
+    {
+      label: "ICMS ST apurado",
+      value: 651452.94,
+      helper: "Total apurado pela revisão fiscal",
+      tone: "rose",
+    },
+    {
+      label: "Diferença total apurada",
       value: 262550.39,
-      helper: "Diferença projetada para revisão fiscal",
+      helper: "Valor absoluto entre crédito e débito",
+      tone: "rose",
+    },
+    {
+      label: "Impacto fiscal estimado",
+      value: 1105331.83,
+      helper: "Soma de crédito a restituir e débito a complementar",
       tone: "rose",
     },
   ],
@@ -915,7 +915,7 @@ export const FISCAL_DEMO_FINANCIALS = {
     {
       label: "Base operação própria",
       value: 112546623.02,
-      helper: "Base consolidada das operações analisadas",
+      helper: "Entradas e saídas consolidadas no período",
       tone: "indigo",
     },
     {
@@ -926,8 +926,8 @@ export const FISCAL_DEMO_FINANCIALS = {
     },
     {
       label: "Base operação ST",
-      value: 31847596.72,
-      helper: "Base recalculada para substituição tributária",
+      value: 3495374.02,
+      helper: "Base intermediária recalculada para substituição tributária",
       tone: "amber",
     },
     {
@@ -950,14 +950,14 @@ export const FISCAL_DEMO_FINANCIALS = {
     },
     {
       label: "Diferença total apurada",
-      value: 5773064.63,
-      helper: "Apurado menos declarado",
+      value: 5773064.62,
+      helper: "Valor absoluto entre crédito e débito",
       tone: "rose",
     },
     {
       label: "Impacto fiscal estimado",
-      value: 5773064.63,
-      helper: "Diferença consolidada para revisão fiscal",
+      value: 6990748.04,
+      helper: "Soma de crédito a restituir e débito a complementar",
       tone: "rose",
     },
   ],
@@ -1364,7 +1364,7 @@ export const CONSTRUCTION_DEMO_FINANCIALS = {
     {
       label: "Base operação própria",
       value: 186793869.6,
-      helper: "Base declarada nas operações próprias",
+      helper: "Entradas e saídas consolidadas no período",
       tone: "indigo",
     },
     {
@@ -1375,8 +1375,8 @@ export const CONSTRUCTION_DEMO_FINANCIALS = {
     },
     {
       label: "Base operação ST",
-      value: 239860927.76,
-      helper: "Base apurada para operação com substituição tributária",
+      value: 17352912.07,
+      helper: "Base intermediária recalculada para substituição tributária",
       tone: "amber",
     },
     {
@@ -1399,14 +1399,14 @@ export const CONSTRUCTION_DEMO_FINANCIALS = {
     },
     {
       label: "Diferença total apurada",
-      value: 6935818.89,
-      helper: "Resultado consolidado após devoluções e ajustes",
+      value: 33187043.95,
+      helper: "Valor absoluto entre crédito e débito",
       tone: "rose",
     },
     {
       label: "Impacto fiscal estimado",
-      value: 6935818.89,
-      helper: "Diferença consolidada para revisão fiscal",
+      value: 34705824.13,
+      helper: "Soma de crédito a restituir e débito a complementar",
       tone: "rose",
     },
   ],
@@ -1851,7 +1851,7 @@ export const ITATIAIA_DEMO_FINANCIALS = {
     {
       label: "Base operação própria",
       value: 94417402.88,
-      helper: "Base apurada nas operações próprias",
+      helper: "Entradas e saídas consolidadas no período",
       tone: "indigo",
     },
     {
@@ -1862,8 +1862,8 @@ export const ITATIAIA_DEMO_FINANCIALS = {
     },
     {
       label: "Base operação ST",
-      value: 122951458.02,
-      helper: "Base apurada para operação com substituição tributária",
+      value: 6513136.44,
+      helper: "Base intermediária recalculada para substituição tributária",
       tone: "amber",
     },
     {
@@ -1886,14 +1886,14 @@ export const ITATIAIA_DEMO_FINANCIALS = {
     },
     {
       label: "Diferença total apurada",
-      value: 2540226.2,
-      helper: "Resultado consolidado após devoluções e ajustes",
+      value: 12661521.25,
+      helper: "Valor absoluto entre crédito e débito",
       tone: "rose",
     },
     {
       label: "Impacto fiscal estimado",
-      value: 2540226.2,
-      helper: "Diferença consolidada para revisão fiscal",
+      value: 13026272.87,
+      helper: "Soma de crédito a restituir e débito a complementar",
       tone: "rose",
     },
   ],
@@ -2330,7 +2330,7 @@ export const GLASS_DEMO_FINANCIALS = {
     {
       label: "Base operação própria",
       value: 14922522.88,
-      helper: "Base apurada nas operações próprias",
+      helper: "Entradas e saídas consolidadas no período",
       tone: "indigo",
     },
     {
@@ -2341,8 +2341,8 @@ export const GLASS_DEMO_FINANCIALS = {
     },
     {
       label: "Base operação ST",
-      value: 20922499.3,
-      helper: "Base apurada para operação com substituição tributária",
+      value: 1323846.89,
+      helper: "Base intermediária recalculada para substituição tributária",
       tone: "amber",
     },
     {
@@ -2365,14 +2365,14 @@ export const GLASS_DEMO_FINANCIALS = {
     },
     {
       label: "Diferença total apurada",
-      value: 751249.63,
-      helper: "Resultado consolidado após devoluções e ajustes",
+      value: 2562590.17,
+      helper: "Valor absoluto entre crédito e débito",
       tone: "rose",
     },
     {
       label: "Impacto fiscal estimado",
-      value: 751249.63,
-      helper: "Diferença consolidada para revisão fiscal",
+      value: 2647693.77,
+      helper: "Soma de crédito a restituir e débito a complementar",
       tone: "rose",
     },
   ],

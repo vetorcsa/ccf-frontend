@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type SidebarKey = "dashboard" | "new-batch" | "batches";
+type SidebarKey = "dashboard" | "audits" | "new-batch" | "batches";
 
 type SidebarItem = {
   key: SidebarKey | string;
@@ -73,12 +73,37 @@ function FilesIcon() {
   );
 }
 
+function AuditIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 11l2 2 4-5" />
+      <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8" />
+      <path d="M16 3h5v5" />
+      <path d="M21 3l-7 7" />
+    </svg>
+  );
+}
+
 const GLOBAL_ITEMS: SidebarItem[] = [
   {
     key: "dashboard",
     label: "Dashboard",
     href: "/dashboard",
     icon: <DashboardIcon />,
+  },
+  {
+    key: "audits",
+    label: "Auditorias",
+    href: "/audits",
+    icon: <AuditIcon />,
   },
   {
     key: "new-batch",
