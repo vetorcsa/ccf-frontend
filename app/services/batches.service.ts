@@ -126,6 +126,60 @@ export type BatchAnalysisFiscalNote = {
   sampleDocumentIds?: string[] | null;
 };
 
+export type BatchAnalysisValueMetric = {
+  key?: string | null;
+  label?: string | null;
+  value?: number | string | null;
+  helper?: string | null;
+  description?: string | null;
+  tone?: string | null;
+};
+
+export type BatchAnalysisValueDivergence = {
+  code?: string | null;
+  title?: string | null;
+  detail?: string | null;
+  description?: string | null;
+  reason?: string | null;
+  estimatedImpact?: number | string | null;
+  impact?: number | string | null;
+  amount?: number | string | null;
+  value?: number | string | null;
+  documentsCount?: number | string | null;
+  docsCount?: number | string | null;
+  documents?: number | string | null;
+  occurrences?: number | string | null;
+  severity?: string | null;
+};
+
+export type BatchAnalysisValueDocument = {
+  fileName?: string | null;
+  originalName?: string | null;
+  document?: string | null;
+  name?: string | null;
+  operation?: string | null;
+  difference?: number | string | null;
+  amount?: number | string | null;
+  impact?: number | string | null;
+  estimatedImpact?: number | string | null;
+  reason?: string | null;
+  description?: string | null;
+  status?: string | null;
+};
+
+export type BatchAnalysisValues = {
+  metrics?: BatchAnalysisValueMetric[] | null;
+  valueDivergences?: BatchAnalysisValueDivergence[] | null;
+  divergences?: BatchAnalysisValueDivergence[] | null;
+  majorDivergences?: BatchAnalysisValueDivergence[] | null;
+  topDivergences?: BatchAnalysisValueDivergence[] | null;
+  topDocuments?: BatchAnalysisValueDocument[] | null;
+  documents?: BatchAnalysisValueDocument[] | null;
+  documentsWithLargestDifferences?: BatchAnalysisValueDocument[] | null;
+  documentsWithDifferences?: BatchAnalysisValueDocument[] | null;
+  [key: string]: unknown;
+};
+
 export type BatchAnalysisPeriod = {
   startIssuedAt?: string | null;
   endIssuedAt?: string | null;
@@ -135,6 +189,7 @@ export type BatchAnalysisResponse = {
   batch?: BatchSummary | null;
   period?: BatchAnalysisPeriod | null;
   summary?: BatchAnalysisSummary | null;
+  values?: BatchAnalysisValues | null;
   divergences?: BatchAnalysisDivergence[] | null;
   fiscalNotes?: BatchAnalysisFiscalNote[] | string[] | null;
   documents?: {

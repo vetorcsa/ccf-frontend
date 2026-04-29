@@ -35,6 +35,7 @@ import {
   type BatchAnalysisDocument,
   type BatchAnalysisFiscalNote,
   type BatchAnalysisResponse,
+  type BatchAnalysisValues,
 } from "../../../services/batches.service";
 import { downloadFile } from "../../../services/files.service";
 
@@ -269,6 +270,39 @@ type NormalizedFiscalNote = {
   sampleDocumentIds: string[];
 };
 
+type FinancialTone = "neutral" | "indigo" | "emerald" | "amber" | "rose";
+
+type FinancialMetric = {
+  label: string;
+  value: number;
+  helper: string;
+  tone: FinancialTone;
+};
+
+type FinancialValueDivergence = {
+  code: string;
+  title: string;
+  detail: string;
+  estimatedImpact: number;
+  documentsCount: number;
+  occurrences: number;
+  severity: string;
+};
+
+type FinancialTopDocument = {
+  fileName: string;
+  operation: string;
+  difference: number;
+  reason: string;
+  status: string;
+};
+
+type FinancialsViewModel = {
+  metrics: FinancialMetric[];
+  valueDivergences: FinancialValueDivergence[];
+  topDocuments: FinancialTopDocument[];
+};
+
 type DocumentsTableVariant = "divergences" | "errors";
 type AnalysisTabKey = "overview" | "values" | "demonstrative";
 
@@ -414,6 +448,126 @@ function formatCurrency(value: number | null | undefined): string {
   }).format(value);
 }
 
+function parseFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const hasComma = normalized.includes(",");
+  const parsed = Number(
+    normalized
+      .replace(/[^\d,.-]/g, "")
+      .replace(hasComma ? /\./g : /,/g, "")
+      .replace(",", "."),
+  );
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeLookupKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function pickNumber(values: BatchAnalysisValues, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = parseFiniteNumber(values[key]);
+
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  const normalizedKeys = new Set(keys.map(normalizeLookupKey));
+
+  for (const [key, rawValue] of Object.entries(values)) {
+    if (!normalizedKeys.has(normalizeLookupKey(key))) {
+      continue;
+    }
+
+    const value = parseFiniteNumber(rawValue);
+
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function pickText(...values: Array<unknown>): string | null {
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+
+    const normalized = value.trim();
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function normalizeFinancialTone(tone: string | null | undefined, fallback: FinancialTone): FinancialTone {
+  if (tone === "neutral" || tone === "indigo" || tone === "emerald" || tone === "amber" || tone === "rose") {
+    return tone;
+  }
+
+  return fallback;
+}
+
+function pickMetricNumber(
+  metrics: NonNullable<BatchAnalysisValues["metrics"]>,
+  keys: string[],
+): number | null {
+  const normalizedKeys = new Set(keys.map(normalizeLookupKey));
+
+  for (const metric of metrics) {
+    const identifiers = [metric.key, metric.label]
+      .filter((value): value is string => typeof value === "string")
+      .map(normalizeLookupKey);
+    const matches = identifiers.some((identifier) => normalizedKeys.has(identifier));
+
+    if (!matches) {
+      continue;
+    }
+
+    const value = parseFiniteNumber(metric.value);
+
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function pickCardNumber(values: BatchAnalysisValues, keys: string[]): number | null {
+  const directValue = pickNumber(values, keys);
+
+  if (directValue !== null) {
+    return directValue;
+  }
+
+  return Array.isArray(values.metrics) ? pickMetricNumber(values.metrics, keys) : null;
+}
+
 function formatPercent(value: number | null | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return "-";
@@ -479,6 +633,311 @@ function normalizeFiscalNotes(value: BatchAnalysisResponse["fiscalNotes"]): Norm
 
     return accumulator;
   }, []);
+}
+
+function normalizeFinancialMetric(
+  metric: NonNullable<BatchAnalysisValues["metrics"]>[number],
+  index: number,
+): FinancialMetric | null {
+  const value = parseFiniteNumber(metric.value);
+
+  if (value === null) {
+    return null;
+  }
+
+  const label = pickText(metric.label, metric.key) ?? `Valor ${index + 1}`;
+  const helper = pickText(metric.helper, metric.description) ?? "Valor consolidado pela análise fiscal";
+
+  return {
+    label,
+    value,
+    helper,
+    tone: normalizeFinancialTone(metric.tone ?? null, index === 0 ? "indigo" : "neutral"),
+  };
+}
+
+function buildMetric(label: string, value: number | null, helper: string, tone: FinancialTone): FinancialMetric {
+  const safeValue = value ?? 0;
+  return {
+    label,
+    value: label === "Diferença total apurada" ? Math.abs(safeValue) : safeValue,
+    helper,
+    tone,
+  };
+}
+
+function buildFinancialMetricsFromValues(values: BatchAnalysisValues): FinancialMetric[] {
+  const credit = pickCardNumber(values, [
+    "Crédito a restituir",
+    "creditToRefund",
+    "creditToReturn",
+    "refundCredit",
+    "credit",
+    "creditValue",
+    "creditAmount",
+    "totalCredit",
+    "creditoRestituir",
+    "creditoARestituir",
+    "creditoADevolver",
+    "valorCreditoRestituir",
+  ]);
+  const debit = pickCardNumber(values, [
+    "Débito a complementar",
+    "debitToComplement",
+    "debitComplement",
+    "debit",
+    "debitValue",
+    "debitAmount",
+    "totalDebit",
+    "debitoComplementar",
+    "debitoAComplementar",
+    "valorDebitoComplementar",
+  ]);
+  const explicitDifference = pickCardNumber(values, [
+    "Diferença total apurada",
+    "totalDifference",
+    "difference",
+    "differenceTotal",
+    "totalDivergenceValue",
+    "valorDiferencaTotal",
+    "diferencaTotalApurada",
+    "assessedTotalDifference",
+    "totalAssessedDifference",
+  ]);
+  const explicitImpact = pickCardNumber(values, [
+    "Impacto fiscal estimado",
+    "estimatedFiscalImpact",
+    "fiscalImpact",
+    "estimatedImpact",
+    "impact",
+    "totalImpact",
+    "impactoFiscalEstimado",
+    "valorImpactoFiscalEstimado",
+  ]);
+
+  return [
+    buildMetric(
+      "Base operação própria",
+      pickCardNumber(values, [
+        "Base operação própria",
+        "ownOperationBase",
+        "ownOperationBaseTotal",
+        "baseOwnOperation",
+        "baseOwnOperationTotal",
+        "ownOperationTotal",
+        "baseOperacaoPropria",
+        "baseOperacaoPropriaTotal",
+        "baseCalculoOperacaoPropria",
+        "totalOwnOperationBase",
+        "ownBase",
+        "totalOwnBase",
+      ]),
+      "Entradas e saídas consolidadas no período",
+      "indigo",
+    ),
+    buildMetric("Crédito a restituir", credit, "Crédito potencial identificado nas entradas", "emerald"),
+    buildMetric(
+      "Base operação ST",
+      pickCardNumber(values, [
+        "Base operação ST",
+        "stBase",
+        "stBaseTotal",
+        "stOperationBase",
+        "stOperationBaseTotal",
+        "baseSt",
+        "baseST",
+        "baseOperacaoST",
+        "baseOperacaoSt",
+        "baseOperacaoStTotal",
+        "substitutionTaxBase",
+        "icmsStBase",
+        "totalStBase",
+      ]),
+      "Base recalculada para substituição tributária",
+      "amber",
+    ),
+    buildMetric("Débito a complementar", debit, "Débito apurado sobre as saídas", "rose"),
+    buildMetric(
+      "ICMS ST declarado",
+      pickCardNumber(values, [
+        "ICMS ST declarado",
+        "declaredIcmsSt",
+        "declaredIcmsStTotal",
+        "icmsStDeclared",
+        "icmsSTDeclared",
+        "declaredSt",
+        "valorDeclaradoIcmsSt",
+        "icmsSTDeclarado",
+      ]),
+      "Total declarado pelo contribuinte",
+      "neutral",
+    ),
+    buildMetric(
+      "ICMS ST apurado",
+      pickCardNumber(values, [
+        "ICMS ST apurado",
+        "calculatedIcmsSt",
+        "calculatedIcmsStTotal",
+        "icmsStCalculated",
+        "icmsStAssessed",
+        "assessedIcmsSt",
+        "assessedIcmsStTotal",
+        "assessedIcmsSt",
+        "calculatedSt",
+        "valorApuradoIcmsSt",
+        "icmsSTApurado",
+      ]),
+      "Total apurado pela revisão fiscal",
+      "rose",
+    ),
+    buildMetric(
+      "Diferença total apurada",
+      explicitDifference ?? (credit !== null && debit !== null ? credit - debit : null),
+      "Valor absoluto entre crédito e débito",
+      "rose",
+    ),
+    buildMetric(
+      "Impacto fiscal estimado",
+      explicitImpact ?? (credit !== null && debit !== null ? credit + debit : null),
+      "Soma de crédito a restituir e débito a complementar",
+      "rose",
+    ),
+  ];
+}
+
+function normalizeFinancialDivergences(values: BatchAnalysisValues): FinancialValueDivergence[] {
+  const rawDivergences =
+    values.valueDivergences ?? values.majorDivergences ?? values.topDivergences ?? values.divergences ?? [];
+
+  if (!Array.isArray(rawDivergences)) {
+    return [];
+  }
+
+  return rawDivergences.reduce<FinancialValueDivergence[]>((accumulator, item, index) => {
+    if (!item || typeof item !== "object") {
+      return accumulator;
+    }
+
+    const code = pickText(item.code) ?? `VALUE_DIVERGENCE_${index + 1}`;
+    const title = pickText(item.title, item.description, item.reason) ?? "Divergência por valor";
+    const estimatedImpact = parseFiniteNumber(item.estimatedImpact ?? item.impact ?? item.amount ?? item.value);
+
+    if (estimatedImpact === null) {
+      return accumulator;
+    }
+
+    accumulator.push({
+      code,
+      title,
+      detail: pickText(item.detail, item.description, item.reason, item.title) ?? title,
+      estimatedImpact,
+      documentsCount: parseFiniteNumber(item.documentsCount ?? item.docsCount ?? item.documents) ?? 0,
+      occurrences: parseFiniteNumber(item.occurrences) ?? 0,
+      severity: pickText(item.severity) ?? "WARNING",
+    });
+
+    return accumulator;
+  }, []);
+}
+
+function normalizeFinancialDocuments(values: BatchAnalysisValues): FinancialTopDocument[] {
+  const rawDocuments =
+    values.topDocuments ??
+    values.documentsWithLargestDifferences ??
+    values.documentsWithDifferences ??
+    values.documents ??
+    [];
+
+  if (!Array.isArray(rawDocuments)) {
+    return [];
+  }
+
+  return rawDocuments.reduce<FinancialTopDocument[]>((accumulator, document) => {
+    if (!document || typeof document !== "object") {
+      return accumulator;
+    }
+
+    const fileName = pickText(document.fileName, document.originalName, document.document, document.name);
+    const difference = parseFiniteNumber(
+      document.difference ?? document.amount ?? document.impact ?? document.estimatedImpact,
+    );
+
+    if (!fileName || difference === null) {
+      return accumulator;
+    }
+
+    accumulator.push({
+      fileName,
+      operation: pickText(document.operation) ?? "-",
+      difference,
+      reason: pickText(document.reason, document.description) ?? "Diferença financeira identificada",
+      status: pickText(document.status) ?? "Atenção",
+    });
+
+    return accumulator;
+  }, []);
+}
+
+function normalizeAnalysisValues(values: BatchAnalysisResponse["values"]): FinancialsViewModel | null {
+  if (!values || typeof values !== "object") {
+    return null;
+  }
+
+  const configuredMetrics = buildFinancialMetricsFromValues(values);
+  const rawMetrics = Array.isArray(values.metrics)
+    ? values.metrics
+        .map((metric, index) => normalizeFinancialMetric(metric, index))
+        .filter((metric): metric is FinancialMetric => metric !== null)
+    : [];
+  const configuredLabels = new Set(configuredMetrics.map((metric) => normalizeLookupKey(metric.label)));
+  const metrics =
+    configuredMetrics.length > 0
+      ? [
+          ...configuredMetrics,
+          ...rawMetrics.filter((metric) => !configuredLabels.has(normalizeLookupKey(metric.label))),
+        ]
+      : rawMetrics;
+
+  if (metrics.length === 0) {
+    return null;
+  }
+
+  return {
+    metrics,
+    valueDivergences: normalizeFinancialDivergences(values),
+    topDocuments: normalizeFinancialDocuments(values),
+  };
+}
+
+function normalizeDemoFinancials(financials: ReturnType<typeof getDemoBatchFinancials>): FinancialsViewModel | null {
+  if (!financials) {
+    return null;
+  }
+
+  return {
+    metrics: financials.metrics.map((metric, index) => ({
+      label: metric.label,
+      value: metric.value,
+      helper: metric.helper,
+      tone: normalizeFinancialTone(metric.tone, index === 0 ? "indigo" : "neutral"),
+    })),
+    valueDivergences: financials.valueDivergences.map((item) => ({
+      code: item.code,
+      title: item.title,
+      detail: item.title,
+      estimatedImpact: item.estimatedImpact,
+      documentsCount: item.documentsCount,
+      occurrences: item.occurrences,
+      severity: item.severity,
+    })),
+    topDocuments: financials.topDocuments.map((document) => ({
+      fileName: document.fileName,
+      operation: document.operation,
+      difference: document.difference,
+      reason: document.reason,
+      status: document.status,
+    })),
+  };
 }
 
 function resolveSummaryNumber(
@@ -596,7 +1055,7 @@ function AnalysisTabs({
   );
 }
 
-function ValuesTab({ financials }: { financials: ReturnType<typeof getDemoBatchFinancials> }) {
+function ValuesTab({ financials }: { financials: FinancialsViewModel | null }) {
   if (!financials) {
     return (
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -630,111 +1089,115 @@ function ValuesTab({ financials }: { financials: ReturnType<typeof getDemoBatchF
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <header className="border-b border-slate-200 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-900">Maiores Divergências por Valor</h3>
-        </header>
+      {financials.valueDivergences.length > 0 ? (
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <header className="border-b border-slate-200 px-6 py-4">
+            <h3 className="text-base font-semibold text-slate-900">Maiores Divergências por Valor</h3>
+          </header>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full whitespace-nowrap text-left">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80">
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Divergência
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Detalhe
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Impacto Estimado
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Docs</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Ocorrências
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Severidade
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {financials.valueDivergences.map((item) => (
-                <tr key={item.code} className="transition-colors hover:bg-slate-50">
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-slate-900">
-                      {getDivergenceDisplayLabel(item.code, item.title)}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.title}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                    {formatCurrency(item.estimatedImpact)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.documentsCount}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{item.occurrences}</td>
-                  <td className="px-6 py-4 text-right">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getDivergenceSeverityClass(
-                        item.severity,
-                      )}`}
-                    >
-                      {getDivergenceSeverityLabel(item.severity)}
-                    </span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full whitespace-nowrap text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Divergência
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Detalhe
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Impacto Estimado
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Docs</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Ocorrências
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Severidade
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {financials.valueDivergences.map((item) => (
+                  <tr key={item.code} className="transition-colors hover:bg-slate-50">
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-slate-900">
+                        {getDivergenceDisplayLabel(item.code, item.title)}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.detail}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                      {formatCurrency(item.estimatedImpact)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.documentsCount}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{item.occurrences}</td>
+                    <td className="px-6 py-4 text-right">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getDivergenceSeverityClass(
+                          item.severity,
+                        )}`}
+                      >
+                        {getDivergenceSeverityLabel(item.severity)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <header className="border-b border-slate-200 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-900">Documentos com Maior Diferença Financeira</h3>
-        </header>
+      {financials.topDocuments.length > 0 ? (
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <header className="border-b border-slate-200 px-6 py-4">
+            <h3 className="text-base font-semibold text-slate-900">Documentos com Maior Diferença Financeira</h3>
+          </header>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full whitespace-nowrap text-left">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80">
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Arquivo</th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Operação
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Diferença
-                </th>
-                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Motivo</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {financials.topDocuments.map((document) => (
-                <tr key={document.fileName} className="transition-colors hover:bg-slate-50">
-                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{document.fileName}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{document.operation}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                    {formatCurrency(document.difference)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{document.reason}</td>
-                  <td className="px-6 py-4 text-right">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                        document.status === "Crítico"
-                          ? "border border-rose-200 bg-rose-50 text-rose-700"
-                          : "border border-amber-200 bg-amber-50 text-amber-700"
-                      }`}
-                    >
-                      {document.status}
-                    </span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full whitespace-nowrap text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Arquivo</th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Operação
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Diferença
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Motivo</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Status
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {financials.topDocuments.map((document) => (
+                  <tr key={document.fileName} className="transition-colors hover:bg-slate-50">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{document.fileName}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{document.operation}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                      {formatCurrency(document.difference)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{document.reason}</td>
+                    <td className="px-6 py-4 text-right">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          document.status === "Crítico"
+                            ? "border border-rose-200 bg-rose-50 text-rose-700"
+                            : "border border-amber-200 bg-amber-50 text-amber-700"
+                        }`}
+                      >
+                        {document.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -1171,7 +1634,9 @@ export default function BatchAnalysisPage() {
     () => normalizeDocuments(analysis?.documents?.withErrors),
     [analysis?.documents?.withErrors],
   );
-  const demoFinancials = useMemo(() => getDemoBatchFinancials(batchId), [batchId]);
+  const demoFinancials = useMemo(() => normalizeDemoFinancials(getDemoBatchFinancials(batchId)), [batchId]);
+  const realFinancials = useMemo(() => normalizeAnalysisValues(analysis?.values), [analysis?.values]);
+  const financials = isDemoAnalysis ? demoFinancials : realFinancials;
   const demoDemonstrativeRows = useMemo(() => getDemoBatchDemonstrativeRows(batchId), [batchId]);
   const demoCompanyInfo = useMemo(() => getDemoBatchCompanyInfo(batchId), [batchId]);
 
@@ -1580,7 +2045,7 @@ export default function BatchAnalysisPage() {
             </section>
               </>
             ) : activeTab === "values" ? (
-              <ValuesTab financials={demoFinancials} />
+              <ValuesTab financials={financials} />
             ) : (
               <DemonstrativeTab rows={demoDemonstrativeRows} />
             )}
